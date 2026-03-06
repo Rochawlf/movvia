@@ -4,7 +4,7 @@
     {{-- HAMBURGER MENU & DRAWER --}}
     <div x-data="{ sideMenuOpen: false }" class="z-[150] absolute top-0 left-0">
         
-        {{-- BOTÃO HAMBURGUER --}}
+        <!-- {{-- BOTÃO HAMBURGUER --}} agaggaga -->
         <button
             x-show="mapMode !== 'mapSelection'"
             x-transition:leave="transition ease-in duration-200"
