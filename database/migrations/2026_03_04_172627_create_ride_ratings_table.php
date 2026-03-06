@@ -6,22 +6,19 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('ride_ratings', function (Blueprint $table) {
-            $table->foreignId('ride_id')->constrained();
-            $table->foreignId('driver_id')->constrained('users');
-            $table->integer('stars'); // 1 a 5
-            $table->json('complaints')->nullable(); // Guardar as 5 opções clicadas
+            $table->id();
+            $table->foreignId('ride_id')->constrained('rides')->cascadeOnDelete();
+            $table->foreignId('passenger_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('driver_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->unsignedTinyInteger('stars');
+            $table->json('complaints')->nullable();
+            $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('ride_ratings');

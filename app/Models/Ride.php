@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class Ride extends Model
 {
-    // Campos que permitimos preencher via Ride::create()
     protected $fillable = [
         'passenger_id',
         'driver_id',
@@ -19,12 +18,18 @@ class Ride extends Model
         'destination_lng',
         'category',
         'status',
+        'distance',
         'fare',
     ];
 
-    // Transforma o texto do banco no nosso objeto Enum automaticamente
     protected $casts = [
         'status' => RideStatus::class,
+        'origin_lat' => 'float',
+        'origin_lng' => 'float',
+        'destination_lat' => 'float',
+        'destination_lng' => 'float',
+        'distance' => 'float',
+        'fare' => 'float',
     ];
 
     public function passenger()

@@ -101,6 +101,7 @@ new class extends Component {
         selectionTarget: 'destination',
         setMode(m) {
             this.mode = m;
+            window.dispatchEvent(new CustomEvent('map-mode-changed', { detail: m }));
         },
         openMapSelection(target) {
             this.selectionTarget = target;
@@ -108,6 +109,7 @@ new class extends Component {
             window.dispatchEvent(new CustomEvent('movvia-select-target', {
                 detail: { target }
             }));
+            window.dispatchEvent(new CustomEvent('map-mode-changed', { detail: 'mapSelection' }));
         }
     }"
     x-on:route-calculated.window="setMode('default')"
@@ -141,7 +143,7 @@ new class extends Component {
         </div>
     </div>
 
-    {{-- BOTTOM SHEET --}}
+    {{-- BOTTOM SHEET SELEÇÃO NO MAPA --}}
     <div
         class="fixed inset-x-0 bottom-0 bg-[#121212] rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.4)] z-[160] p-6 pb-[max(2rem,env(safe-area-inset-bottom))] transition-transform duration-300 pointer-events-auto flex flex-col items-center border-t border-gray-800"
         :class="{ 'translate-y-0': mode === 'mapSelection', 'translate-y-full': mode !== 'mapSelection' }"
@@ -347,9 +349,6 @@ new class extends Component {
 @push('scripts')
 <script>
 (function () {
-    if (window.movviaRideRequestInitialized) return;
-    window.movviaRideRequestInitialized = true;
-
     let routingControl = null;
     let originMarker = null;
     let destinationMarker = null;
@@ -358,10 +357,12 @@ new class extends Component {
     let currentSelectionTarget = 'destination';
     let typingTimerOrigin = null;
     let typingTimerDestination = null;
+    let lastBoundMap = null;
 
     let state = {
         origin: null,
-        destination: null
+        destination: null,
+        originLockedManual: false
     };
 
     const doneTypingInterval = 800;
@@ -459,7 +460,6 @@ new class extends Component {
     function updateFareAndDistance(distanceKm) {
         const component = getComponent();
         if (!component) return;
-
         component.set('distance', Number(distanceKm.toFixed(2)));
     }
 
@@ -507,6 +507,7 @@ new class extends Component {
 
         if (originMarker) {
             originMarker.setLatLng([state.origin.lat, state.origin.lng]);
+            if (!map.hasLayer(originMarker)) originMarker.addTo(map);
         } else {
             originMarker = L.marker([state.origin.lat, state.origin.lng], { icon: originIcon }).addTo(map);
         }
@@ -532,6 +533,7 @@ new class extends Component {
 
         if (destinationMarker) {
             destinationMarker.setLatLng([state.destination.lat, state.destination.lng]);
+            if (!map.hasLayer(destinationMarker)) destinationMarker.addTo(map);
         } else {
             destinationMarker = L.marker([state.destination.lat, state.destination.lng], { icon: destinationIcon }).addTo(map);
         }
@@ -556,7 +558,9 @@ new class extends Component {
                     const result = await searchAddress(this.value);
                     if (!result) return;
 
+                    state.originLockedManual = true;
                     await setOrigin(map, result.lat, result.lon, true, false);
+
                     const component = getComponent();
                     if (component) component.set('origin', this.value);
                 }, doneTypingInterval);
@@ -578,34 +582,40 @@ new class extends Component {
         }
     }
 
+    function ensureLiveMarkerOnMap(map, lat, lng) {
+        if (liveLocationMarker) {
+            liveLocationMarker.setLatLng([lat, lng]);
+            if (!map.hasLayer(liveLocationMarker)) liveLocationMarker.addTo(map);
+        } else {
+            liveLocationMarker = L.marker([lat, lng], { icon: liveIcon }).addTo(map);
+        }
+    }
+
     function startLiveLocation(map) {
         if (!navigator.geolocation) return;
-        if (watchId !== null) return;
 
-        watchId = navigator.geolocation.watchPosition(
-            async function (position) {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
+        if (watchId === null) {
+            watchId = navigator.geolocation.watchPosition(
+                async function (position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
 
-                if (liveLocationMarker) {
-                    liveLocationMarker.setLatLng([lat, lng]);
-                } else {
-                    liveLocationMarker = L.marker([lat, lng], { icon: liveIcon }).addTo(map);
+                    ensureLiveMarkerOnMap(map, lat, lng);
+
+                    if (!state.originLockedManual) {
+                        await setOrigin(map, lat, lng, !state.origin, true);
+                    }
+                },
+                function (error) {
+                    console.error('Erro ao obter localização em tempo real:', error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 5000,
+                    timeout: 15000
                 }
-
-                if (!state.origin) {
-                    await setOrigin(map, lat, lng, true, true);
-                }
-            },
-            function (error) {
-                console.error('Erro ao obter localização em tempo real:', error);
-            },
-            {
-                enableHighAccuracy: true,
-                maximumAge: 5000,
-                timeout: 15000
-            }
-        );
+            );
+        }
     }
 
     window.confirmMapLocation = function () {
@@ -613,12 +623,14 @@ new class extends Component {
             const center = map.getCenter();
 
             if (currentSelectionTarget === 'origin') {
+                state.originLockedManual = true;
                 await setOrigin(map, center.lat, center.lng, false, true);
             } else {
                 await setDestination(map, center.lat, center.lng, false);
             }
 
             window.dispatchEvent(new CustomEvent('route-calculated'));
+            window.dispatchEvent(new CustomEvent('map-mode-changed', { detail: 'default' }));
         });
     };
 
@@ -636,16 +648,39 @@ new class extends Component {
 
             await setDestination(map, lat, lng, true);
             window.dispatchEvent(new CustomEvent('route-calculated'));
+            window.dispatchEvent(new CustomEvent('map-mode-changed', { detail: 'default' }));
         });
     });
 
+    function rebindIfMapChanged(map) {
+        if (lastBoundMap === map) return;
+
+        lastBoundMap = map;
+
+        originMarker = null;
+        destinationMarker = null;
+        liveLocationMarker = null;
+        routingControl = null;
+
+        bindInputs(map);
+        startLiveLocation(map);
+
+        if (state.origin) {
+            setOrigin(map, state.origin.lat, state.origin.lng, false, false);
+        }
+
+        if (state.destination) {
+            setDestination(map, state.destination.lat, state.destination.lng, false);
+        }
+    }
+
     function init() {
         waitForMap(function (map) {
-            bindInputs(map);
-            startLiveLocation(map);
+            rebindIfMapChanged(map);
         });
     }
 
+    init();
     document.addEventListener('DOMContentLoaded', init);
     document.addEventListener('livewire:navigated', init);
     document.addEventListener('livewire:initialized', init);

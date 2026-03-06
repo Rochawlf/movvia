@@ -6,27 +6,35 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::table('rides', function (Blueprint $table) {
-            // Usamos decimal(10,8) e (11,8) para precisão GPS total
-            $table->decimal('origin_lat', 10, 8)->nullable()->after('origin_address');
-            $table->decimal('origin_lng', 11, 8)->nullable()->after('origin_lat');
-            $table->decimal('destination_lat', 10, 8)->nullable()->after('destination_address');
-            $table->decimal('destination_lng', 11, 8)->nullable()->after('destination_lat');
+        Schema::create('rides', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('passenger_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('driver_id')->nullable()->constrained('users')->nullOnDelete();
+
+            $table->string('status')->default('pending');
+
+            $table->string('category')->default('car');
+
+            $table->string('origin_address')->nullable();
+            $table->string('destination_address')->nullable();
+
+            $table->decimal('origin_lat', 10, 7)->nullable();
+            $table->decimal('origin_lng', 10, 7)->nullable();
+            $table->decimal('destination_lat', 10, 7)->nullable();
+            $table->decimal('destination_lng', 10, 7)->nullable();
+
+            $table->decimal('distance', 8, 2)->default(0);
+            $table->decimal('fare', 10, 2)->default(0);
+
+            $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::table('rides', function (Blueprint $table) {
-            $table->dropColumn(['origin_lat', 'origin_lng', 'destination_lat', 'destination_lng']);
-        });
+        Schema::dropIfExists('rides');
     }
 };
