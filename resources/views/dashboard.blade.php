@@ -21,7 +21,7 @@
             <div class="w-5 h-0.5 bg-gray-800 rounded-full"></div>
         </button>
 
-        {{-- BACKDROP --}}
+        <!-- {{-- BACKDROP --}} skdljfsldkhçslakghsadlfafsdlç -->
         <div
             x-show="sideMenuOpen"
             style="display: none;"
@@ -35,7 +35,7 @@
             class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[100]"
         ></div>
 
-        {{-- DRAWER --}}
+        <!-- {{-- DRAWER --}} saldkhjasldksadas -->
         <div
             x-show="sideMenuOpen"
             style="display: none;"
