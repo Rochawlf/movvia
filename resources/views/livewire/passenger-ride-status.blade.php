@@ -12,6 +12,7 @@ new class extends Component {
     public array $selectedComplaints = [];
     public bool $blockDriver = false;
 
+    // Busca a corrida ativa ou a última concluída que ainda não foi avaliada
     public function getActiveRideProperty()
     {
         return Ride::where('passenger_id', Auth::id())
@@ -22,10 +23,10 @@ new class extends Component {
                     RideStatus::InProgress,
                     RideStatus::Finished
                 ])
-                    ->orWhere(function ($q) {
-                        $q->where('status', RideStatus::Completed)
-                            ->whereDoesntHave('rating');
-                    });
+                ->orWhere(function ($q) {
+                    $q->where('status', RideStatus::Completed)
+                      ->whereDoesntHave('rating');
+                });
             })
             ->latest()
             ->first();
@@ -40,16 +41,22 @@ new class extends Component {
         }
     }
 
+    // Retorna opções de reclamação baseadas na nota e no tipo de veículo
     public function getOptionsProperty()
     {
         if (!$this->activeRide || $this->rating === 0 || $this->rating === 5) return [];
+        
         $isMoto = $this->activeRide->category === 'moto';
 
         return match ($this->rating) {
-            4 => $isMoto ? ['Viseira riscada', 'Moto antiga', 'Capacete com cheiro', 'Pilotagem rápida', 'Comunicação difícil'] : ['Ar-condicionado fraco', 'Rota longa', 'Carro com cheiro', 'Som alto', 'Conversa'],
-            3 => $isMoto ? ['Sem touca descartável', 'Capacete ruim', 'Moto suja', 'Freadas bruscas', 'Viseira ruim'] : ['Motorista impaciente', 'Direção brusca', 'Atraso', 'Carro sujo', 'Uso de celular'],
-            2 => $isMoto ? ['Moto em mau estado', 'Grosseria', 'Manobras perigosas', 'Excesso velocidade', 'Capacete sem trava'] : ['Veículo em mau estado', 'Grosseria', 'Errou caminho', 'Direção perigosa', 'Som inadequado'],
-            1 => $isMoto ? ['Sem capacete extra', 'Desrespeito', 'Empinando', 'Moto diferente', 'Direção sob efeito'] : ['Assédio ou Desrespeito', 'Imprudência grave', 'Cobrança indevida', 'Carro diferente', 'Parada indevida'],
+            4 => $isMoto ? ['Viseira riscada', 'Moto antiga', 'Capacete com cheiro', 'Pilotagem rápida', 'Comunicação difícil'] 
+                         : ['Ar-condicionado fraco', 'Rota longa', 'Carro com cheiro', 'Som alto', 'Conversa excessiva'],
+            3 => $isMoto ? ['Sem touca descartável', 'Capacete ruim', 'Moto suja', 'Freadas bruscas', 'Viseira ruim'] 
+                         : ['Motorista impaciente', 'Direção brusca', 'Atraso', 'Carro sujo', 'Uso de celular'],
+            2 => $isMoto ? ['Moto em mau estado', 'Grosseria', 'Manobras perigosas', 'Excesso velocidade', 'Capacete sem trava'] 
+                         : ['Veículo em mau estado', 'Grosseria', 'Errou caminho', 'Direção perigosa', 'Som inadequado'],
+            1 => $isMoto ? ['Sem capacete extra', 'Desrespeito', 'Empinando', 'Moto diferente', 'Direção sob efeito'] 
+                         : ['Assédio ou Desrespeito', 'Imprudência grave', 'Cobrança indevida', 'Carro diferente', 'Parada indevida'],
             default => [],
         };
     }
@@ -65,7 +72,7 @@ new class extends Component {
         if (!$this->activeRide) return;
 
         try {
-            // 1. Tenta salvar a avaliação
+            // 1. Salva a avaliação vinculada à corrida
             RideRating::create([
                 'ride_id' => $this->activeRide->id,
                 'driver_id' => $this->activeRide->driver_id,
@@ -73,23 +80,19 @@ new class extends Component {
                 'complaints' => $this->selectedComplaints
             ]);
 
-            // 2. Tenta bloquear se for o caso
+            // 2. Bloqueia o motorista se o passageiro desejar (apenas em notas 1)
             if ($this->rating === 1 && $this->blockDriver) {
-                DriverBlock::create([
+                DriverBlock::firstOrCreate([
                     'passenger_id' => Auth::id(),
                     'driver_id' => $this->activeRide->driver_id
                 ]);
             }
 
-            // 3. SE CHEGOU AQUI, DEU CERTO! Limpa tudo.
             $this->reset(['rating', 'selectedComplaints', 'blockDriver']);
-
-            session()->flash('message', 'Avaliação enviada!');
+            session()->flash('message', 'Obrigado por avaliar!');
+            
         } catch (\Exception $e) {
-            // Se der erro, ele vai te mostrar no log do Laravel
-            \Log::error("Erro ao avaliar: " . $e->getMessage());
-
-            // Forçamos o reset para a tela não travar pro usuário
+            \Log::error("Erro ao avaliar no Movvia: " . $e->getMessage());
             $this->reset(['rating', 'selectedComplaints', 'blockDriver']);
         }
     }
@@ -97,71 +100,69 @@ new class extends Component {
 
 ?>
 
-<div wire:poll.3s>
+<div wire:poll.4s>
     @if($this->activeRide)
-    <div class="space-y-4">
-        {{-- CARD DE STATUS --}}
-        <div class="bg-white border-2 border-orange-500 rounded-[2rem] p-6 shadow-xl relative overflow-hidden">
-            <div class="absolute top-0 right-0 p-8 opacity-5 text-6xl">🚗</div>
-            <div class="relative z-10">
-                <h4 class="text-[10px] font-black uppercase text-orange-500 mb-1">Status da sua Viagem</h4>
-                <div class="mt-2 text-gray-800">
-                    @if($this->activeRide->status === RideStatus::Completed)
-                    <div class="text-center py-2">
-                        <p class="text-xl font-black text-green-600 uppercase italic">Pagamento Confirmado!</p>
+        
+        {{-- CASO 1: VIAGEM EM ANDAMENTO / MOTORISTA CHEGANDO (Card Flutuante Superior) --}}
+        @if($this->activeRide->status->value !== 'completed')
+            <div class="fixed top-24 left-1/2 -translate-x-1/2 z-[40] w-[90%] max-w-sm animate-bounce-slow">
+                <div class="bg-white/80 backdrop-blur-xl border border-white/60 rounded-[2.5rem] p-5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.15)] flex items-center gap-5 relative overflow-hidden transition-all duration-500">
+                    <div class="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent pointer-events-none"></div>
+                    <div class="h-14 w-14 bg-gradient-to-br from-orange-400 to-orange-600 shadow-[0_10px_20px_-10px_rgba(249,115,22,0.6)] rounded-2xl flex items-center justify-center text-white text-3xl animate-pulse shrink-0">
+                        @if($this->activeRide->status->value === 'finished') 💵 @else 🚗 @endif
                     </div>
-                    @elseif($this->activeRide->status === RideStatus::Finished)
-                    <div class="bg-green-500 rounded-2xl p-4 text-white text-center shadow-lg">
-                        <p class="text-xs font-bold uppercase mb-1">Pague ao Motorista</p>
-                        <p class="text-3xl font-black italic">R$ {{ number_format($this->activeRide->fare, 2, ',', '.') }}</p>
+                    <div class="flex-1 relative z-10">
+                        <h4 class="text-[11px] font-black uppercase text-orange-600 tracking-widest">
+                            {{ $this->activeRide->status->name }}
+                        </h4>
+                        @if($this->activeRide->status->value === 'finished')
+                            <p class="text-3xl font-black text-gray-900 tracking-tighter drop-shadow-sm">R$ {{ number_format($this->activeRide->fare, 2, ',', '.') }}</p>
+                        @else
+                            <p class="text-sm font-bold text-gray-700">Motorista a caminho...</p>
+                        @endif
                     </div>
-                    @else
-                    <p class="font-black italic text-lg uppercase">{{ $this->activeRide->status->name }}...</p>
-                    @endif
                 </div>
             </div>
-        </div>
+        @endif
 
-        {{-- SEÇÃO DE AVALIAÇÃO --}}
-        @if($this->activeRide->status === RideStatus::Completed)
-        <div class="bg-white rounded-[2.5rem] p-8 shadow-2xl border-2 border-orange-100 animate-fade-in">
-            <div class="text-center mb-6">
-                <span class="text-4xl">🏁</span>
-                <h5 class="font-black text-gray-800 uppercase text-xs mt-2 italic">Viagem Concluída!</h5>
-                <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Como foi sua experiência?</p>
+        {{-- CASO 2: VIAGEM CONCLUÍDA (Overlay Central com Blur no Fundo) --}}
+        @if($this->activeRide->status->value === 'completed')
+            <div class="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                {{-- FUNDO COM BLUR --}}
+                <div class="absolute inset-0 bg-black/40 backdrop-blur-md animate-fade-in"></div>
+
+                {{-- MODAL DE AVALIAÇÃO --}}
+                <div class="relative bg-white/95 backdrop-blur-2xl w-full max-w-md rounded-[3rem] p-10 shadow-[0_35px_60px_-15px_rgba(0,0,0,0.5)] animate-slide-up border border-white/60">
+                    <div class="text-center">
+                        <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-green-400 to-green-500 rounded-full mb-6 shadow-[0_15px_30px_-15px_rgba(34,197,94,0.6)]">
+                            <span class="text-5xl text-white">🏁</span>
+                        </div>
+                        <h2 class="text-3xl font-black uppercase tracking-tighter text-gray-900 leading-none">Viagem Finalizada</h2>
+                        <p class="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-4">Avalie o motorista</p>
+                        
+                        {{-- ESTRELAS --}}
+                        <div class="flex justify-center gap-3 py-10">
+                            @foreach(range(1, 5) as $i)
+                                <button wire:click="setRating({{ $i }})" 
+                                    class="text-5xl transition-all duration-300 {{ $rating >= $i ? 'scale-125 grayscale-0 drop-shadow-lg' : 'grayscale opacity-20 hover:opacity-50' }}">
+                                    ⭐
+                                </button>
+                            @endforeach
+                        </div>
+
+                        {{-- BOTÃO FINAL --}}
+                        @if($rating > 0)
+                            <div class="animate-fade-in mt-4">
+                                <button wire:click="submitRating" 
+                                    class="w-full py-5 bg-gradient-to-r from-gray-900 to-black text-white rounded-[2rem] font-black uppercase tracking-widest text-sm hover:from-green-500 hover:to-green-600 transition-all duration-300 shadow-[0_15px_30px_-10px_rgba(0,0,0,0.4)] hover:shadow-[0_15px_30px_-10px_rgba(34,197,94,0.5)] active:scale-95">
+                                    Confirmar Avaliação
+                                </button>
+                            </div>
+                        @endif
+                    </div>
+                </div>
             </div>
-
-            <div class="flex justify-center gap-3 mb-8">
-                @foreach(range(1, 5) as $i)
-                <button wire:click="setRating({{ $i }})" class="text-4xl transition-transform {{ $rating >= $i ? 'scale-110 grayscale-0' : 'grayscale opacity-30' }}">⭐</button>
-                @endforeach
-            </div>
-
-            @if($rating > 0 && $rating < 5)
-                <div class="grid grid-cols-1 gap-2 mb-6">
-                @foreach($this->options as $opt)
-                <button wire:click="toggleComplaint('{{ $opt }}')"
-                    class="py-3 px-4 rounded-2xl text-[10px] font-black uppercase border-2 transition-all {{ in_array($opt, $selectedComplaints) ? 'bg-orange-500 border-orange-500 text-white shadow-lg' : 'bg-gray-50 border-gray-50 text-gray-400' }}">
-                    {{ $opt }}
-                </button>
-                @endforeach
-        </div>
         @endif
 
-        @if($rating === 1)
-        <label class="flex items-center justify-center gap-2 mb-6 p-4 bg-red-50 rounded-2xl border border-red-100 cursor-pointer">
-            <input type="checkbox" wire:model="blockDriver" class="rounded text-red-600">
-            <span class="text-[9px] font-black text-red-600 uppercase">Bloquear este motorista</span>
-        </label>
-        @endif
-
-        @if($rating > 0)
-        <button wire:click="submitRating" class="w-full py-5 bg-black text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-green-600 transition-all shadow-xl">
-            Confirmar Avaliação
-        </button>
-        @endif
-    </div>
     @endif
-</div>
-@endif
 </div>
