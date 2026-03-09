@@ -83,8 +83,8 @@
     </div>
 
     {{-- AUDIO ASSETS --}}
-    <audio id="snd-online" src="/sounds/online.mp3" preload="auto"></audio>
-    <audio id="snd-offline" src="/sounds/offline.mp3" preload="auto"></audio>
+    <audio id="snd-online" src="{{ asset('assets/sounds/online.mp3') }}" preload="auto"></audio>
+    <audio id="snd-offline" src="{{ asset('assets/sounds/offline.mp3') }}" preload="auto"></audio>
 
     <script>
         window.playStatusSound = (status) => {

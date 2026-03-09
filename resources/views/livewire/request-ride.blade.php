@@ -114,7 +114,6 @@ new class extends Component {
     }"
     x-on:route-calculated.window="setMode('default')"
 >
-    {{-- BOTÃO VOLTAR --}}
     <button
         type="button"
         @click="setMode('search')"
@@ -129,7 +128,6 @@ new class extends Component {
         </svg>
     </button>
 
-    {{-- PINO CENTRAL --}}
     <div
         :class="{ 'opacity-100': mode === 'mapSelection', 'opacity-0 hidden': mode !== 'mapSelection' }"
         class="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center pb-24 transition-opacity duration-300"
@@ -143,7 +141,6 @@ new class extends Component {
         </div>
     </div>
 
-    {{-- BOTTOM SHEET SELEÇÃO NO MAPA --}}
     <div
         class="fixed inset-x-0 bottom-0 bg-[#121212] rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.4)] z-[160] p-6 pb-[max(2rem,env(safe-area-inset-bottom))] transition-transform duration-300 pointer-events-auto flex flex-col items-center border-t border-gray-800"
         :class="{ 'translate-y-0': mode === 'mapSelection', 'translate-y-full': mode !== 'mapSelection' }"
@@ -166,14 +163,13 @@ new class extends Component {
 
         <button
             type="button"
-            onclick="confirmMapLocation()"
+            @click="window.confirmMapLocation && window.confirmMapLocation()"
             class="w-full bg-white text-black py-4 rounded-xl font-bold text-[17px] hover:bg-gray-200 active:scale-95 transition-all"
         >
             Confirmar no mapa
         </button>
     </div>
 
-    {{-- CARD PRINCIPAL --}}
     <div
         :class="{
             'opacity-0 pointer-events-none translate-y-8 scale-95': mode === 'mapSelection',
@@ -214,7 +210,6 @@ new class extends Component {
             <div class="relative pl-10">
                 <div class="absolute left-[13px] top-6 bottom-[10px] w-0.5 border-l-2 border-dashed border-gray-300"></div>
 
-                {{-- PARTIDA --}}
                 <div class="space-y-2 mb-5">
                     <div class="flex items-center justify-between">
                         <label class="text-[9px] font-black text-blue-500 uppercase tracking-widest ml-1">Sua Partida</label>
@@ -240,7 +235,6 @@ new class extends Component {
                     </div>
                 </div>
 
-                {{-- DESTINO --}}
                 <div class="space-y-2">
                     <div class="flex items-center justify-between">
                         <label class="text-[9px] font-black text-orange-500 uppercase tracking-widest ml-1">Destino Final</label>
@@ -269,7 +263,6 @@ new class extends Component {
             </div>
         </div>
 
-        {{-- MODO BUSCA --}}
         <div x-show="mode === 'search'" x-collapse class="relative z-10">
             <div class="pt-4 border-t border-gray-100 space-y-4">
                 <div class="bg-gray-50 p-4 rounded-3xl border border-gray-100">
@@ -293,7 +286,6 @@ new class extends Component {
             </div>
         </div>
 
-        {{-- MODO PADRÃO --}}
         <div x-show="mode === 'default'" x-collapse class="relative z-10 space-y-5">
             <div class="grid grid-cols-2 gap-3 pt-4 border-t border-gray-50">
                 <button
@@ -358,6 +350,10 @@ new class extends Component {
     let typingTimerOrigin = null;
     let typingTimerDestination = null;
     let lastBoundMap = null;
+    let activeMap = null;
+    let originIcon = null;
+    let destinationIcon = null;
+    let liveIcon = null;
 
     let state = {
         origin: null,
@@ -367,37 +363,45 @@ new class extends Component {
 
     const doneTypingInterval = 800;
 
-    const originIcon = L.divIcon({
-        className: 'custom-origin-icon',
-        html: `
-            <div class="w-5 h-5 bg-blue-500 border-[3px] border-white rounded-full shadow-[0_0_10px_rgba(59,130,246,0.6)] relative flex items-center justify-center">
-                <div class="absolute inset-0 rounded-full bg-blue-500 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite] opacity-40"></div>
-            </div>
-        `,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
-    });
+    function ensureLeafletReady() {
+        return typeof window.L !== 'undefined';
+    }
 
-    const destinationIcon = L.icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
-    });
+    function buildIcons() {
+        if (!ensureLeafletReady()) return;
 
-    const liveIcon = L.divIcon({
-        className: 'custom-live-icon',
-        html: `
-            <div class="relative">
-                <div class="w-5 h-5 rounded-full bg-green-500 border-4 border-white shadow-lg"></div>
-                <div class="absolute inset-0 rounded-full bg-green-400 opacity-30 animate-ping"></div>
-            </div>
-        `,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
-    });
+        originIcon = L.divIcon({
+            className: 'custom-origin-icon',
+            html: `
+                <div class="w-5 h-5 bg-blue-500 border-[3px] border-white rounded-full shadow-[0_0_10px_rgba(59,130,246,0.6)] relative flex items-center justify-center">
+                    <div class="absolute inset-0 rounded-full bg-blue-500 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite] opacity-40"></div>
+                </div>
+            `,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
+
+        destinationIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+
+        liveIcon = L.divIcon({
+            className: 'custom-live-icon',
+            html: `
+                <div class="relative">
+                    <div class="w-5 h-5 rounded-full bg-green-500 border-4 border-white shadow-lg"></div>
+                    <div class="absolute inset-0 rounded-full bg-green-400 opacity-30 animate-ping"></div>
+                </div>
+            `,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
+    }
 
     function getComponent() {
         const root = document.getElementById('ride-request-root');
@@ -415,7 +419,7 @@ new class extends Component {
             return;
         }
 
-        if (attempts > 40) return;
+        if (attempts > 50) return;
         setTimeout(() => waitForMap(callback, attempts + 1), 250);
     }
 
@@ -464,7 +468,7 @@ new class extends Component {
     }
 
     function drawRoute(map) {
-        if (!state.origin || !state.destination) return;
+        if (!map || !state.origin || !state.destination || !ensureLeafletReady()) return;
 
         clearRoute(map);
 
@@ -493,7 +497,7 @@ new class extends Component {
 
     async function setOrigin(map, lat, lng, shouldCenter = true, updateText = true) {
         const component = getComponent();
-        if (!component) return;
+        if (!component || !map || !originIcon) return;
 
         state.origin = { lat: parseFloat(lat), lng: parseFloat(lng) };
 
@@ -521,7 +525,7 @@ new class extends Component {
 
     async function setDestination(map, lat, lng, shouldCenter = true) {
         const component = getComponent();
-        if (!component) return;
+        if (!component || !map || !destinationIcon) return;
 
         state.destination = { lat: parseFloat(lat), lng: parseFloat(lng) };
 
@@ -559,7 +563,7 @@ new class extends Component {
                     if (!result) return;
 
                     state.originLockedManual = true;
-                    await setOrigin(map, result.lat, result.lon, true, false);
+                    await setOrigin(activeMap, result.lat, result.lon, true, false);
 
                     const component = getComponent();
                     if (component) component.set('origin', this.value);
@@ -576,13 +580,15 @@ new class extends Component {
                     const result = await searchAddress(this.value);
                     if (!result) return;
 
-                    await setDestination(map, result.lat, result.lon, true);
+                    await setDestination(activeMap, result.lat, result.lon, true);
                 }, doneTypingInterval);
             });
         }
     }
 
     function ensureLiveMarkerOnMap(map, lat, lng) {
+        if (!map || !liveIcon) return;
+
         if (liveLocationMarker) {
             liveLocationMarker.setLatLng([lat, lng]);
             if (!map.hasLayer(liveLocationMarker)) liveLocationMarker.addTo(map);
@@ -591,7 +597,7 @@ new class extends Component {
         }
     }
 
-    function startLiveLocation(map) {
+    function startLiveLocation() {
         if (!navigator.geolocation) return;
 
         if (watchId === null) {
@@ -600,10 +606,12 @@ new class extends Component {
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
 
-                    ensureLiveMarkerOnMap(map, lat, lng);
+                    if (!activeMap) return;
+
+                    ensureLiveMarkerOnMap(activeMap, lat, lng);
 
                     if (!state.originLockedManual) {
-                        await setOrigin(map, lat, lng, !state.origin, true);
+                        await setOrigin(activeMap, lat, lng, !state.origin, true);
                     }
                 },
                 function (error) {
@@ -618,8 +626,9 @@ new class extends Component {
         }
     }
 
-    window.confirmMapLocation = function () {
+    window.confirmMapLocation = async function () {
         waitForMap(async function (map) {
+            activeMap = map;
             const center = map.getCenter();
 
             if (currentSelectionTarget === 'origin') {
@@ -640,6 +649,7 @@ new class extends Component {
 
     window.addEventListener('ride-selected-from-history', function (event) {
         waitForMap(async function (map) {
+            activeMap = map;
             const payload = event.detail?.[0] || event.detail || {};
             const lat = parseFloat(payload.lat);
             const lng = parseFloat(payload.lng);
@@ -653,9 +663,14 @@ new class extends Component {
     });
 
     function rebindIfMapChanged(map) {
-        if (lastBoundMap === map) return;
+        if (!map || lastBoundMap === map) return;
 
         lastBoundMap = map;
+        activeMap = map;
+
+        if (!originIcon || !destinationIcon || !liveIcon) {
+            buildIcons();
+        }
 
         originMarker = null;
         destinationMarker = null;
@@ -663,7 +678,7 @@ new class extends Component {
         routingControl = null;
 
         bindInputs(map);
-        startLiveLocation(map);
+        startLiveLocation();
 
         if (state.origin) {
             setOrigin(map, state.origin.lat, state.origin.lng, false, false);
@@ -675,6 +690,13 @@ new class extends Component {
     }
 
     function init() {
+        if (!ensureLeafletReady()) {
+            setTimeout(init, 300);
+            return;
+        }
+
+        buildIcons();
+
         waitForMap(function (map) {
             rebindIfMapChanged(map);
         });
