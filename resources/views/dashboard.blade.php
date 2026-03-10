@@ -199,7 +199,7 @@
                     </div>
 
                     {{-- STATUS / AVALIAÇÃO --}}
-                    <div class="absolute inset-0 pointer-events-none z-[200]">
+                    <div class="absolute inset-0 z-[200]">
                         <livewire:passenger-ride-status />
                     </div>
 
