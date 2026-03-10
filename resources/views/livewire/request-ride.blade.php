@@ -18,6 +18,29 @@ new class extends Component {
     public $distance = 0;
     public $fare = 0;
 
+    public function getActiveRideProperty()
+    {
+        return Ride::where('passenger_id', Auth::id())
+            ->whereIn('status', [
+                RideStatus::Pending,
+                RideStatus::Accepted,
+                RideStatus::InProgress,
+                RideStatus::Finished,
+            ])
+            ->latest()
+            ->first();
+    }
+
+    public function getCanChooseCategoryProperty()
+    {
+        return !$this->activeRide
+            && !empty($this->originLat)
+            && !empty($this->originLng)
+            && !empty($this->destinationLat)
+            && !empty($this->destinationLng)
+            && (float) $this->distance > 0;
+    }
+
     public function updated($property)
     {
         if (in_array($property, ['distance', 'category'])) {
@@ -59,10 +82,6 @@ new class extends Component {
             'destinationLat' => 'required|numeric',
             'destinationLng' => 'required|numeric',
             'distance' => 'required|numeric|min:0.1',
-        ], [
-            'originLat.required' => 'Defina o ponto de partida.',
-            'destinationLat.required' => 'Defina o destino.',
-            'distance.min' => 'A distância é muito curta.',
         ]);
 
         Ride::create([
@@ -80,14 +99,69 @@ new class extends Component {
         ]);
 
         session()->flash('message', '🚗 Movvia solicitado com sucesso!');
+    }
+
+    public function cancelRide()
+    {
+        $ride = $this->activeRide;
+
+        if (!$ride) {
+            return;
+        }
+
+        if (!in_array($ride->status->value, ['pending', 'accepted'])) {
+            return;
+        }
+
+        $ride->update([
+            'status' => RideStatus::Cancelled,
+        ]);
 
         $this->reset([
+            'origin',
             'destination',
+            'originLat',
+            'originLng',
             'destinationLat',
             'destinationLng',
             'distance',
             'fare',
         ]);
+
+        $this->category = 'car';
+
+        session()->flash('message', 'Corrida cancelada com sucesso.');
+        $this->dispatch('ride-cancelled');
+    }
+
+    public function clearOrigin()
+    {
+        $this->origin = '';
+        $this->originLat = null;
+        $this->originLng = null;
+
+        $this->destination = '';
+        $this->destinationLat = null;
+        $this->destinationLng = null;
+
+        $this->distance = 0;
+        $this->fare = 0;
+        $this->category = 'car';
+
+        $this->dispatch('origin-cleared');
+    }
+
+    public function clearDestination()
+    {
+        $this->destination = '';
+        $this->destinationLat = null;
+        $this->destinationLng = null;
+
+        $this->distance = 0;
+        $this->fare = 0;
+        $this->category = 'car';
+
+        $this->dispatch('destination-cleared');
     }
 };
 
@@ -96,6 +170,7 @@ new class extends Component {
 <div
     id="ride-request-root"
     class="w-full relative"
+    wire:poll.5s
     x-data="{
         mode: 'default',
         selectionTarget: 'destination',
@@ -113,21 +188,22 @@ new class extends Component {
         }
     }"
     x-on:route-calculated.window="setMode('default')"
+    x-on:ride-cancelled.window="setMode('default')"
 >
+    {{-- BOTÃO VOLTAR --}}
     <button
         type="button"
-        @click="setMode('search')"
+        @click="setMode('default')"
         :class="{
             'opacity-100 pointer-events-auto scale-100': mode === 'mapSelection',
             'opacity-0 pointer-events-none scale-90': mode !== 'mapSelection'
         }"
-        class="fixed top-[max(1rem,env(safe-area-inset-top))] left-4 z-[160] bg-white text-gray-900 w-12 h-12 rounded-full shadow-[0_5px_15px_rgba(0,0,0,0.2)] flex items-center justify-center font-bold text-xl active:scale-95 transition-all duration-300"
+        class="fixed top-[max(1rem,env(safe-area-inset-top))] left-4 z-[160] bg-white text-gray-900 w-12 h-12 rounded-full shadow-xl flex items-center justify-center font-bold active:scale-95 transition-all duration-300"
     >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
+        ✕
     </button>
 
+    {{-- PINO CENTRAL --}}
     <div
         :class="{ 'opacity-100': mode === 'mapSelection', 'opacity-0 hidden': mode !== 'mapSelection' }"
         class="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center pb-24 transition-opacity duration-300"
@@ -137,204 +213,182 @@ new class extends Component {
                 <div class="w-3 h-3 bg-white rounded-full"></div>
             </div>
             <div class="w-1 h-6 bg-black"></div>
-            <div class="w-3 h-1 bg-black/40 rounded-full blur-[1px]"></div>
         </div>
     </div>
 
+    {{-- DRAWER MAPA --}}
     <div
-        class="fixed inset-x-0 bottom-0 bg-[#121212] rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.4)] z-[160] p-6 pb-[max(2rem,env(safe-area-inset-bottom))] transition-transform duration-300 pointer-events-auto flex flex-col items-center border-t border-gray-800"
-        :class="{ 'translate-y-0': mode === 'mapSelection', 'translate-y-full': mode !== 'mapSelection' }"
+        class="fixed inset-x-0 bottom-0 bg-[#121212] rounded-t-[2rem] shadow-2xl z-[160] p-6 pb-[max(2rem,env(safe-area-inset-bottom))] transition-transform duration-300 pointer-events-auto"
+        :class="mode === 'mapSelection' ? 'translate-y-0' : 'translate-y-full'"
     >
-        <div class="w-12 h-1.5 bg-gray-600 rounded-full mb-6"></div>
+        <div class="w-12 h-1.5 bg-gray-600 rounded-full mx-auto mb-6"></div>
 
-        <template x-if="selectionTarget === 'origin'">
-            <div class="text-center">
-                <h3 class="text-white text-[22px] font-bold tracking-tight">Defina o embarque</h3>
-                <p class="text-gray-400 text-sm mt-1 mb-8">Arraste o mapa para escolher onde o motorista vai te buscar</p>
-            </div>
-        </template>
+        <h3
+            class="text-white text-center text-xl font-bold mb-2"
+            x-text="selectionTarget === 'origin' ? 'Defina o embarque' : 'Defina o destino'"
+        ></h3>
 
-        <template x-if="selectionTarget === 'destination'">
-            <div class="text-center">
-                <h3 class="text-white text-[22px] font-bold tracking-tight">Defina o destino</h3>
-                <p class="text-gray-400 text-sm mt-1 mb-8">Arraste o mapa para escolher onde você quer chegar</p>
-            </div>
-        </template>
+        <p class="text-gray-400 text-sm text-center mb-6">
+            Arraste o mapa para a localização exata
+        </p>
 
         <button
             type="button"
             @click="window.confirmMapLocation && window.confirmMapLocation()"
-            class="w-full bg-white text-black py-4 rounded-xl font-bold text-[17px] hover:bg-gray-200 active:scale-95 transition-all"
+            class="w-full bg-white text-black py-4 rounded-xl font-bold active:scale-95 transition-all"
         >
             Confirmar no mapa
         </button>
     </div>
 
+    {{-- INTERFACE PRINCIPAL --}}
     <div
-        :class="{
-            'opacity-0 pointer-events-none translate-y-8 scale-95': mode === 'mapSelection',
-            'opacity-100 pointer-events-auto translate-y-0 scale-100': mode !== 'mapSelection'
-        }"
-        class="bg-white/90 backdrop-blur-2xl rounded-[2rem] shadow-[0_25px_50px_-15px_rgba(0,0,0,0.35)] border border-white/60 p-5 sm:p-6 space-y-5 relative overflow-hidden transition-all duration-500 transform origin-bottom"
+        x-show="mode !== 'mapSelection'"
+        class="bg-white/95 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl p-6 space-y-5"
     >
-        <div class="absolute inset-0 bg-gradient-to-br from-white/60 to-transparent pointer-events-none"></div>
-
-        <div class="flex items-center justify-between relative z-10 pt-1">
-            <h2 class="text-lg sm:text-xl font-black text-gray-900 italic tracking-tighter uppercase flex items-center gap-3">
-                <span class="w-2 h-6 bg-gradient-to-b from-orange-400 to-orange-600 rounded-full"></span>
-                Para onde <span class="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-orange-600">vamos?</span>
-            </h2>
-
-            <button
-                type="button"
-                :class="{ 'hidden': mode !== 'search' }"
-                @click="setMode('default')"
-                class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-all font-bold"
-            >
-                ✕
-            </button>
-        </div>
-
         @if (session()->has('message'))
-            <div
-                x-data="{ show: true }"
-                x-init="setTimeout(() => show = false, 4000)"
-                x-show="show"
-                class="relative z-10 p-4 bg-green-50 border border-green-200 text-green-700 rounded-2xl font-bold text-sm"
-            >
+            <div class="p-4 bg-green-50 border border-green-200 text-green-700 rounded-2xl font-bold text-sm">
                 {{ session('message') }}
             </div>
         @endif
 
-        <div class="space-y-5 relative z-10">
-            <div class="relative pl-10">
-                <div class="absolute left-[13px] top-6 bottom-[10px] w-0.5 border-l-2 border-dashed border-gray-300"></div>
+        @if(!$this->activeRide)
+            <h2 class="text-xl font-black italic uppercase">
+                Para onde <span class="text-orange-500">vamos?</span>
+            </h2>
 
-                <div class="space-y-2 mb-5">
-                    <div class="flex items-center justify-between">
-                        <label class="text-[9px] font-black text-blue-500 uppercase tracking-widest ml-1">Sua Partida</label>
+            <div class="space-y-4 relative">
+                <div class="absolute left-3 top-8 bottom-8 w-0.5 border-l-2 border-dashed border-gray-200"></div>
 
+                {{-- ORIGEM --}}
+                <div class="relative pl-10">
+                    <button
+                        type="button"
+                        @click="openMapSelection('origin')"
+                        class="absolute right-10 text-[10px] font-black text-blue-600 uppercase"
+                    >
+                        mapa
+                    </button>
+
+                    @if($origin)
                         <button
                             type="button"
-                            @click="openMapSelection('origin')"
-                            class="text-[10px] font-black uppercase tracking-widest text-blue-600"
+                            wire:click="clearOrigin"
+                            class="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-sm font-black"
                         >
-                            escolher no mapa
+                            ✕
+                        </button>
+                    @endif
+
+                    <div class="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-500 rounded-full border-4 border-white"></div>
+
+                    <input
+                        type="text"
+                        id="input-origin"
+                        wire:model.live.debounce.800ms="origin"
+                        placeholder="Sua localização"
+                        class="w-full bg-gray-50 border-none rounded-2xl py-4 px-4 pr-16 font-bold text-sm"
+                    >
+                </div>
+
+                {{-- DESTINO --}}
+                <div class="relative pl-10">
+                    <button
+                        type="button"
+                        @click="openMapSelection('destination')"
+                        class="absolute right-10 text-[10px] font-black text-orange-600 uppercase"
+                    >
+                        mapa
+                    </button>
+
+                    @if($destination)
+                        <button
+                            type="button"
+                            wire:click="clearDestination"
+                            class="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-sm font-black"
+                        >
+                            ✕
+                        </button>
+                    @endif
+
+                    <div class="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-orange-500 rounded-full border-4 border-white animate-pulse"></div>
+
+                    <input
+                        type="text"
+                        id="input-destination"
+                        wire:model.live.debounce.800ms="destination"
+                        placeholder="Para onde?"
+                        class="w-full bg-gray-50 border-none rounded-2xl py-4 px-4 pr-16 font-bold text-sm"
+                    >
+                </div>
+            </div>
+
+            {{-- CATEGORIAS E PREÇO --}}
+            @if($this->canChooseCategory)
+                <div class="pt-4 border-t space-y-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <button
+                            wire:click="$set('category', 'car')"
+                            class="p-4 rounded-3xl border-2 transition-all {{ $category === 'car' ? 'border-orange-500 bg-orange-50 shadow-sm' : 'border-gray-200 bg-white' }}"
+                        >
+                            <span class="text-3xl">🚗</span>
+                            <p class="text-[10px] font-black uppercase mt-1 {{ $category === 'car' ? 'text-orange-600' : 'text-gray-400' }}">
+                                Carro
+                            </p>
+                        </button>
+
+                        <button
+                            wire:click="$set('category', 'moto')"
+                            class="p-4 rounded-3xl border-2 transition-all {{ $category === 'moto' ? 'border-orange-500 bg-orange-50 shadow-sm' : 'border-gray-200 bg-white' }}"
+                        >
+                            <span class="text-3xl">🏍️</span>
+                            <p class="text-[10px] font-black uppercase mt-1 {{ $category === 'moto' ? 'text-orange-600' : 'text-gray-400' }}">
+                                Moto
+                            </p>
                         </button>
                     </div>
 
-                    <div class="relative">
-                        <div class="absolute -left-[35px] top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-blue-500 border-4 border-white shadow-md"></div>
-
-                        <input
-                            type="text"
-                            wire:model.live.debounce.800ms="origin"
-                            placeholder="Sua localização atual"
-                            class="w-full bg-blue-50/60 border-2 border-blue-100 rounded-2xl py-3.5 px-4 text-sm font-bold text-gray-800 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all shadow-inner"
-                        >
-                    </div>
-                </div>
-
-                <div class="space-y-2">
-                    <div class="flex items-center justify-between">
-                        <label class="text-[9px] font-black text-orange-500 uppercase tracking-widest ml-1">Destino Final</label>
+                    <div class="bg-gray-900 rounded-[2rem] p-5 text-white flex justify-between items-center">
+                        <div>
+                            <p class="text-[10px] font-bold text-orange-400 uppercase">Total</p>
+                            <p class="text-2xl font-black">R$ {{ number_format($fare, 2, ',', '.') }}</p>
+                        </div>
 
                         <button
-                            type="button"
-                            @click="openMapSelection('destination')"
-                            class="text-[10px] font-black uppercase tracking-widest text-orange-600"
+                            wire:click="requestRide"
+                            class="bg-orange-500 px-8 py-4 rounded-2xl font-black uppercase text-xs"
                         >
-                            escolher no mapa
+                            Pedir Movvia
                         </button>
-                    </div>
-
-                    <div class="relative">
-                        <div class="absolute -left-[35px] top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-orange-500 border-4 border-white shadow-[0_0_10px_rgba(249,115,22,0.6)] animate-pulse"></div>
-
-                        <input
-                            type="text"
-                            wire:model.live.debounce.800ms="destination"
-                            @focus="mode = 'search'"
-                            placeholder="Busque destino ou selecione no mapa"
-                            class="w-full bg-orange-50/60 border-2 border-orange-100 rounded-2xl py-3.5 px-4 text-sm font-bold text-gray-800 placeholder-gray-400 focus:border-orange-500 focus:bg-white focus:ring-4 focus:ring-orange-500/10 transition-all shadow-inner"
-                        >
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div x-show="mode === 'search'" x-collapse class="relative z-10">
-            <div class="pt-4 border-t border-gray-100 space-y-4">
-                <div class="bg-gray-50 p-4 rounded-3xl border border-gray-100">
-                    <h3 class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4">
-                        Favoritos Recentes
-                    </h3>
-                    <livewire:recent-rides :limit="3" />
-                </div>
-
-                <button
-                    type="button"
-                    @click="openMapSelection('destination')"
-                    class="w-full flex items-center justify-between p-4 rounded-3xl bg-gray-900 text-white hover:bg-black transition-all active:scale-95"
-                >
-                    <div class="text-left">
-                        <p class="font-black text-sm uppercase tracking-wider">Escolher destino no mapa</p>
-                        <p class="text-[9px] font-medium text-gray-400 uppercase tracking-widest">Localização exata</p>
-                    </div>
-                    <span class="text-xl">🗺️</span>
-                </button>
-            </div>
-        </div>
-
-        <div x-show="mode === 'default'" x-collapse class="relative z-10 space-y-5">
-            <div class="grid grid-cols-2 gap-3 pt-4 border-t border-gray-50">
-                <button
-                    type="button"
-                    wire:click="$set('category', 'car')"
-                    class="flex flex-col items-center justify-center gap-1 p-4 rounded-[1.25rem] border-2 transition-all duration-300 active:scale-95 {{ $category === 'car' ? 'border-orange-500 bg-orange-50/80 shadow-[0_10px_20px_-10px_rgba(249,115,22,0.5)]' : 'border-gray-100 bg-white/50 hover:bg-gray-50 hover:shadow-sm' }}"
-                >
-                    <span class="text-3xl">🚗</span>
-                    <div class="text-center">
-                        <p class="text-[10px] font-black uppercase tracking-widest {{ $category === 'car' ? 'text-orange-600' : 'text-gray-500' }}">Carro</p>
-                        <p class="text-[8px] font-bold mt-1 {{ $category === 'car' ? 'text-orange-400' : 'text-gray-400' }}">A partir R$ 8</p>
-                    </div>
-                </button>
-
-                <button
-                    type="button"
-                    wire:click="$set('category', 'moto')"
-                    class="flex flex-col items-center justify-center gap-1 p-4 rounded-[1.25rem] border-2 transition-all duration-300 active:scale-95 {{ $category === 'moto' ? 'border-orange-500 bg-orange-50/80 shadow-[0_10px_20px_-10px_rgba(249,115,22,0.5)]' : 'border-gray-100 bg-white/50 hover:bg-gray-50 hover:shadow-sm' }}"
-                >
-                    <span class="text-3xl">🏍️</span>
-                    <div class="text-center">
-                        <p class="text-[10px] font-black uppercase tracking-widest {{ $category === 'moto' ? 'text-orange-600' : 'text-gray-500' }}">Moto</p>
-                        <p class="text-[8px] font-bold mt-1 {{ $category === 'moto' ? 'text-orange-400' : 'text-gray-400' }}">A partir R$ 5</p>
-                    </div>
-                </button>
-            </div>
-
-            @if($fare > 0)
-                <div class="flex justify-between items-center bg-gray-900 rounded-[1.25rem] p-4 text-white border border-gray-800">
-                    <div>
-                        <p class="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1 opacity-80">Estimativa</p>
-                        <p class="text-xl font-black tracking-tighter">R$ {{ number_format($fare, 2, ',', '.') }}</p>
-                    </div>
-                    <div class="text-right flex flex-col items-end gap-1">
-                        <p class="text-[9px] font-bold text-gray-300 uppercase">📏 {{ number_format($distance, 1, ',', '.') }} km</p>
-                        <p class="text-[9px] font-bold text-gray-300 uppercase">⏱️ ~{{ ceil($distance * 3) }} min</p>
                     </div>
                 </div>
             @endif
+        @else
+            {{-- CARD DE STATUS --}}
+            <div class="py-2 flex items-center gap-4">
+                <div class="w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center text-2xl animate-pulse">
+                    {{ $this->activeRide->category === 'moto' ? '🏍️' : '🚗' }}
+                </div>
 
-            <button
-                type="button"
-                wire:click="requestRide"
-                @disabled(!$originLat || !$originLng || !$destinationLat || !$destinationLng || $fare <= 0)
-                class="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-4 rounded-[1.25rem] font-black uppercase tracking-widest text-sm shadow-[0_15px_30px_-10px_rgba(249,115,22,0.5)] active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:grayscale disabled:shadow-none"
-            >
-                Pedir Movvia
-            </button>
-        </div>
+                <div class="flex-1">
+                    <p class="text-[10px] font-black text-orange-600 uppercase">
+                        {{ method_exists($this->activeRide->status, 'label') ? $this->activeRide->status->label() : $this->activeRide->status->value }}
+                    </p>
+                    <p class="text-sm font-bold truncate">
+                        Indo para: {{ $this->activeRide->destination_address }}
+                    </p>
+                </div>
+
+                @if(in_array($this->activeRide->status->value, ['pending', 'accepted']))
+                    <button
+                        wire:click="cancelRide"
+                        class="text-red-500 font-black text-[10px] uppercase underline"
+                    >
+                        Cancelar
+                    </button>
+                @endif
+            </div>
+        @endif
     </div>
 </div>
 
@@ -491,6 +545,7 @@ new class extends Component {
             const route = ev.routes[0];
             if (route?.summary?.totalDistance) {
                 updateFareAndDistance(route.summary.totalDistance / 1000);
+                window.dispatchEvent(new CustomEvent('route-calculated'));
             }
         });
     }
@@ -549,18 +604,23 @@ new class extends Component {
         drawRoute(map);
     }
 
-    function bindInputs(map) {
-        const originInput = document.querySelector('input[wire\\:model\\.live\\.debounce\\.800ms="origin"]');
-        const destinationInput = document.querySelector('input[wire\\:model\\.live\\.debounce\\.800ms="destination"]');
+    function bindInputs() {
+        const originInput = document.getElementById('input-origin');
+        const destinationInput = document.getElementById('input-destination');
 
         if (originInput && !originInput.dataset.movviaBound) {
             originInput.dataset.movviaBound = '1';
 
             originInput.addEventListener('input', function () {
+                if (!this.value.trim()) {
+                    window.dispatchEvent(new CustomEvent('origin-cleared'));
+                    return;
+                }
+
                 clearTimeout(typingTimerOrigin);
                 typingTimerOrigin = setTimeout(async () => {
                     const result = await searchAddress(this.value);
-                    if (!result) return;
+                    if (!result || !activeMap) return;
 
                     state.originLockedManual = true;
                     await setOrigin(activeMap, result.lat, result.lon, true, false);
@@ -575,10 +635,15 @@ new class extends Component {
             destinationInput.dataset.movviaBound = '1';
 
             destinationInput.addEventListener('input', function () {
+                if (!this.value.trim()) {
+                    window.dispatchEvent(new CustomEvent('destination-cleared'));
+                    return;
+                }
+
                 clearTimeout(typingTimerDestination);
                 typingTimerDestination = setTimeout(async () => {
                     const result = await searchAddress(this.value);
-                    if (!result) return;
+                    if (!result || !activeMap) return;
 
                     await setDestination(activeMap, result.lat, result.lon, true);
                 }, doneTypingInterval);
@@ -598,37 +663,91 @@ new class extends Component {
     }
 
     function startLiveLocation() {
-        if (!navigator.geolocation) return;
+        if (!navigator.geolocation || watchId !== null) return;
 
-        if (watchId === null) {
-            watchId = navigator.geolocation.watchPosition(
-                async function (position) {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
+        watchId = navigator.geolocation.watchPosition(
+            async function (position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
 
-                    if (!activeMap) return;
+                if (!activeMap) return;
 
-                    ensureLiveMarkerOnMap(activeMap, lat, lng);
+                ensureLiveMarkerOnMap(activeMap, lat, lng);
 
-                    if (!state.originLockedManual) {
-                        await setOrigin(activeMap, lat, lng, !state.origin, true);
-                    }
-                },
-                function (error) {
-                    console.error('Erro ao obter localização em tempo real:', error);
-                },
-                {
-                    enableHighAccuracy: true,
-                    maximumAge: 5000,
-                    timeout: 15000
+                if (!state.originLockedManual) {
+                    await setOrigin(activeMap, lat, lng, !state.origin, true);
                 }
-            );
+            },
+            function (error) {
+                console.error('Erro ao obter localização em tempo real:', error);
+            },
+            {
+                enableHighAccuracy: true,
+                maximumAge: 5000,
+                timeout: 15000
+            }
+        );
+    }
+
+    function clearAllMapState() {
+        if (!activeMap) return;
+
+        if (routingControl) {
+            activeMap.removeControl(routingControl);
+            routingControl = null;
         }
+
+        if (originMarker) {
+            activeMap.removeLayer(originMarker);
+            originMarker = null;
+        }
+
+        if (destinationMarker) {
+            activeMap.removeLayer(destinationMarker);
+            destinationMarker = null;
+        }
+
+        state.origin = null;
+        state.destination = null;
+        state.originLockedManual = false;
+
+        const component = getComponent();
+        if (component) {
+            component.set('distance', 0);
+            component.set('fare', 0);
+        }
+
+        window.dispatchEvent(new CustomEvent('route-cleared'));
+    }
+
+    function clearDestinationState() {
+        if (!activeMap) return;
+
+        if (routingControl) {
+            activeMap.removeControl(routingControl);
+            routingControl = null;
+        }
+
+        if (destinationMarker) {
+            activeMap.removeLayer(destinationMarker);
+            destinationMarker = null;
+        }
+
+        state.destination = null;
+
+        const component = getComponent();
+        if (component) {
+            component.set('distance', 0);
+            component.set('fare', 0);
+        }
+
+        window.dispatchEvent(new CustomEvent('route-cleared'));
     }
 
     window.confirmMapLocation = async function () {
         waitForMap(async function (map) {
             activeMap = map;
+
             const center = map.getCenter();
 
             if (currentSelectionTarget === 'origin') {
@@ -647,19 +766,16 @@ new class extends Component {
         currentSelectionTarget = event.detail?.target || 'destination';
     });
 
-    window.addEventListener('ride-selected-from-history', function (event) {
-        waitForMap(async function (map) {
-            activeMap = map;
-            const payload = event.detail?.[0] || event.detail || {};
-            const lat = parseFloat(payload.lat);
-            const lng = parseFloat(payload.lng);
+    window.addEventListener('ride-cancelled', function () {
+        clearAllMapState();
+    });
 
-            if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    window.addEventListener('destination-cleared', function () {
+        clearDestinationState();
+    });
 
-            await setDestination(map, lat, lng, true);
-            window.dispatchEvent(new CustomEvent('route-calculated'));
-            window.dispatchEvent(new CustomEvent('map-mode-changed', { detail: 'default' }));
-        });
+    window.addEventListener('origin-cleared', function () {
+        clearAllMapState();
     });
 
     function rebindIfMapChanged(map) {
@@ -672,21 +788,8 @@ new class extends Component {
             buildIcons();
         }
 
-        originMarker = null;
-        destinationMarker = null;
-        liveLocationMarker = null;
-        routingControl = null;
-
-        bindInputs(map);
+        bindInputs();
         startLiveLocation();
-
-        if (state.origin) {
-            setOrigin(map, state.origin.lat, state.origin.lng, false, false);
-        }
-
-        if (state.destination) {
-            setDestination(map, state.destination.lat, state.destination.lng, false);
-        }
     }
 
     function init() {
