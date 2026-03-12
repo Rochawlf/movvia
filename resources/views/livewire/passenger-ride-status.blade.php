@@ -12,7 +12,6 @@ new class extends Component {
     public array $selectedComplaints = [];
     public bool $blockDriver = false;
 
-    // REQUISITO 5: Foca apenas em corridas completadas que precisam de avaliação
     public function getCompletedRideProperty()
     {
         return Ride::query()
@@ -30,6 +29,7 @@ new class extends Component {
             $this->selectedComplaints = array_values(array_diff($this->selectedComplaints, [$complaint]));
             return;
         }
+
         $this->selectedComplaints[] = $complaint;
     }
 
@@ -97,96 +97,119 @@ new class extends Component {
 
 ?>
 
-<div wire:poll.5s>
+<div wire:poll.5s class="pointer-events-none">
     @if($this->completedRide)
         {{-- MODAL DE AVALIAÇÃO --}}
-        <div class="fixed inset-0 z-[200] flex items-end justify-center p-0 sm:p-4">
-            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+        <div class="fixed inset-0 z-[220] flex items-end justify-center p-0 sm:p-4 pointer-events-auto">
+            <div class="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
 
-            <div 
-                x-data="{ show: false }" 
+            <div
+                x-data="{ show: false }"
                 x-init="setTimeout(() => show = true, 100)"
                 x-show="show"
                 x-transition:enter="transition ease-out duration-300"
-                x-transition:enter-start="translate-y-full"
-                x-transition:enter-end="translate-y-0"
-                class="relative w-full max-w-md bg-white rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl px-6 pt-4 pb-[max(2rem,env(safe-area-inset-bottom))]"
+                x-transition:enter-start="translate-y-full opacity-0"
+                x-transition:enter-end="translate-y-0 opacity-100"
+                class="relative w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] overflow-hidden"
             >
-                <div class="flex justify-center mb-6">
-                    <div class="w-12 h-1.5 bg-gray-200 rounded-full"></div>
-                </div>
+                <div class="absolute inset-0 bg-[#161616]/96 backdrop-blur-3xl border border-white/10 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)]"></div>
 
-                <div class="text-center mb-6">
-                    <div class="inline-flex items-center justify-center w-20 h-20 bg-green-100 text-green-600 rounded-full mb-4 text-4xl">
-                        ⭐
+                <div class="relative px-6 pt-4 pb-[max(2rem,env(safe-area-inset-bottom))]">
+                    <div class="flex justify-center mb-6">
+                        <div class="w-12 h-1.5 bg-white/20 rounded-full"></div>
                     </div>
-                    <h2 class="text-2xl font-black text-gray-900 tracking-tight">Como foi sua viagem?</h2>
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Sua avaliação ajuda o Movvia a melhorar</p>
-                </div>
 
-                @if (session()->has('message'))
-                    <div class="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-2xl text-xs font-bold text-center">
-                        {{ session('message') }}
-                    </div>
-                @endif
-
-                {{-- SELEÇÃO DE ESTRELAS --}}
-                <div class="flex justify-center gap-3 py-4">
-                    @foreach(range(1, 5) as $i)
-                        <button
-                            type="button"
-                            wire:click="setRating({{ $i }})"
-                            class="text-4xl transition-all duration-200 transform hover:scale-125 {{ $rating >= $i ? 'grayscale-0 opacity-100' : 'grayscale opacity-30' }}"
-                        >
+                    <div class="text-center mb-6">
+                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-orange-500/20 to-blue-600/20 border border-white/10 text-4xl mb-4 shadow-xl">
                             ⭐
-                        </button>
-                    @endforeach
-                </div>
-
-                {{-- TAGS DE FEEDBACK NEGATIVO --}}
-                @if($rating > 0 && $rating < 5 && count($this->options))
-                    <div class="mt-6 animate-fadeIn">
-                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 text-center">O que poderia ter sido melhor?</p>
-                        <div class="grid grid-cols-2 gap-2">
-                            @foreach($this->options as $option)
-                                <button
-                                    type="button"
-                                    wire:click="toggleComplaint('{{ addslashes($option) }}')"
-                                    class="px-3 py-3 rounded-xl text-[10px] font-black border-2 transition-all
-                                        {{ in_array($option, $selectedComplaints, true)
-                                            ? 'bg-orange-500 border-orange-500 text-white'
-                                            : 'bg-gray-50 border-gray-100 text-gray-500' }}"
-                                >
-                                    {{ $option }}
-                                </button>
-                            @endforeach
                         </div>
-                    </div>
-                @endif
 
-                {{-- OPÇÃO DE BLOQUEIO PARA 1 ESTRELA --}}
-                @if($rating === 1)
-                    <div class="mt-6 p-4 rounded-2xl bg-red-50 border-2 border-red-100 flex items-start gap-3">
-                        <input type="checkbox" wire:model.live="blockDriver" id="block" class="mt-1 rounded text-red-500 focus:ring-red-500">
-                        <label for="block" class="cursor-pointer">
-                            <p class="text-xs font-black text-red-600 uppercase">Não viajar com este motorista</p>
-                            <p class="text-[10px] text-red-400 font-bold leading-tight">Bloquear o motorista para que ele não receba mais suas chamadas.</p>
-                        </label>
-                    </div>
-                @endif
+                        <h2 class="text-2xl font-black text-white tracking-tight">
+                            Como foi sua viagem?
+                        </h2>
 
-                {{-- BOTÃO DE CONFIRMAÇÃO --}}
-                @if($rating > 0)
-                    <div class="mt-8">
-                        <button
-                            type="button"
-                            wire:click="submitRating"
-                            class="w-full py-5 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl active:scale-95 transition-all"
-                        >
-                            Enviar Avaliação
-                        </button>
+                        <p class="text-[10px] font-black text-orange-300 uppercase tracking-[0.22em] mt-2">
+                            Sua avaliação ajuda o Movvia a melhorar
+                        </p>
                     </div>
-                @endif
+
+                    @if (session()->has('message'))
+                        <div class="mb-4 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-400/20 text-emerald-300 text-xs font-black text-center">
+                            {{ session('message') }}
+                        </div>
+                    @endif
+
+                    {{-- ESTRELAS --}}
+                    <div class="flex justify-center gap-3 py-4">
+                        @foreach(range(1, 5) as $i)
+                            <button
+                                type="button"
+                                wire:click="setRating({{ $i }})"
+                                class="text-4xl transition-all duration-200 transform hover:scale-125 {{ $rating >= $i ? 'grayscale-0 opacity-100' : 'grayscale opacity-30' }}"
+                            >
+                                ⭐
+                            </button>
+                        @endforeach
+                    </div>
+
+                    {{-- FEEDBACK NEGATIVO --}}
+                    @if($rating > 0 && $rating < 5 && count($this->options))
+                        <div class="mt-6">
+                            <p class="text-[10px] font-black text-white/45 uppercase tracking-[0.18em] mb-3 text-center">
+                                O que poderia ter sido melhor?
+                            </p>
+
+                            <div class="grid grid-cols-2 gap-2">
+                                @foreach($this->options as $option)
+                                    <button
+                                        type="button"
+                                        wire:click="toggleComplaint('{{ addslashes($option) }}')"
+                                        class="px-3 py-3 rounded-2xl text-[10px] font-black border transition-all
+                                            {{ in_array($option, $selectedComplaints, true)
+                                                ? 'bg-gradient-to-r from-orange-500 to-blue-600 border-transparent text-white shadow-[0_12px_25px_-12px_rgba(37,99,235,0.45)]'
+                                                : 'bg-white/5 border-white/10 text-white/65 hover:bg-white/8' }}"
+                                    >
+                                        {{ $option }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- BLOQUEAR MOTORISTA --}}
+                    @if($rating === 1)
+                        <div class="mt-6 p-4 rounded-[1.6rem] bg-red-500/10 border border-red-400/20 flex items-start gap-3">
+                            <input
+                                type="checkbox"
+                                wire:model.live="blockDriver"
+                                id="block"
+                                class="mt-1 rounded border-red-300 bg-transparent text-red-500 focus:ring-red-500"
+                            >
+
+                            <label for="block" class="cursor-pointer">
+                                <p class="text-xs font-black text-red-300 uppercase tracking-widest">
+                                    Não viajar com este motorista
+                                </p>
+                                <p class="text-[10px] text-red-200/70 font-bold leading-tight mt-1">
+                                    Bloquear o motorista para que ele não receba mais suas chamadas.
+                                </p>
+                            </label>
+                        </div>
+                    @endif
+
+                    {{-- BOTÃO --}}
+                    @if($rating > 0)
+                        <div class="mt-8">
+                            <button
+                                type="button"
+                                wire:click="submitRating"
+                                class="w-full py-5 bg-gradient-to-r from-orange-500 to-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-[0_15px_30px_-10px_rgba(37,99,235,0.35)] active:scale-95 transition-all"
+                            >
+                                Enviar avaliação
+                            </button>
+                        </div>
+                    @endif
+                </div>
             </div>
         </div>
     @endif

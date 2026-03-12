@@ -1,301 +1,239 @@
 <x-app-layout>
-    <div class="h-screen bg-gray-50 flex flex-col overflow-hidden" x-data="{
-        mapMode: 'default',
-        driverOnline: @js((bool) auth()->user()->is_online)
-    }" @map-mode-changed.window="mapMode = $event.detail"
-        @driver-status-updated.window="driverOnline = $event.detail.isOnline">
+    <div class="h-screen bg-[#121212] flex flex-col overflow-hidden"
+        x-data="{ mapMode: 'default', sideMenuOpen: false }" @map-mode-changed.window="mapMode = $event.detail">
 
         {{-- ========================= --}}
-        {{-- MENU GLOBAL / HAMBÚRGUER --}}
+        {{-- MENU LATERAL PASSAGEIRO --}}
         {{-- ========================= --}}
-        <div x-data="{ sideMenuOpen: false }" class="z-[180] absolute top-0 left-0">
+        <div class="z-[220] absolute top-0 left-0">
 
             {{-- BOTÃO HAMBÚRGUER --}}
-            <button x-show="mapMode !== 'mapSelection'" x-transition:enter="transition ease-out duration-300 delay-200"
+            <button x-show="mapMode !== 'mapSelection'" x-transition:enter="transition ease-out duration-300 delay-150"
                 x-transition:enter-start="opacity-0 scale-90" x-transition:enter-end="opacity-100 scale-100"
                 @click="sideMenuOpen = true"
-                class="absolute top-4 left-4 w-12 h-12 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-white/60 flex flex-col items-center justify-center gap-1.5 z-50 hover:bg-white transition-all active:scale-95">
-                <div class="w-6 h-0.5 bg-gray-800 rounded-full"></div>
-                <div class="w-6 h-0.5 bg-gray-800 rounded-full"></div>
-                <div class="w-4 h-0.5 bg-gray-800 rounded-full self-start ml-3"></div>
+                class="absolute top-6 left-4 w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/10 shadow-[0_15px_35px_-12px_rgba(0,0,0,0.45)] flex flex-col items-center justify-center gap-1.5 z-50 hover:bg-white/15 transition-all active:scale-95">
+                <div class="w-6 h-0.5 bg-white rounded-full"></div>
+                <div class="w-6 h-0.5 bg-white rounded-full"></div>
+                <div class="w-4 h-0.5 bg-white rounded-full self-start ml-3"></div>
             </button>
 
             {{-- BACKDROP MENU --}}
             <div x-show="sideMenuOpen" x-cloak @click="sideMenuOpen = false"
-                class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[100]"></div>
+                class="fixed inset-0 bg-black/60 backdrop-blur-md z-[100]"></div>
 
             {{-- DRAWER MENU --}}
             <div x-show="sideMenuOpen" x-cloak x-transition:enter="transition ease-out duration-300"
                 x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0"
                 x-transition:leave="transition ease-in duration-300" x-transition:leave-start="translate-x-0"
                 x-transition:leave-end="-translate-x-full"
-                class="fixed top-0 left-0 bottom-0 w-[85%] max-w-[340px] bg-white shadow-2xl z-[110] flex flex-col p-6 rounded-r-[2.5rem]">
+                class="fixed top-0 left-0 bottom-0 w-[86%] max-w-[340px] bg-[#171717]/95 backdrop-blur-2xl shadow-2xl z-[110] flex flex-col p-6 rounded-r-[2.5rem] border-r border-white/10">
                 <div class="flex justify-between items-start mb-8">
-                    <h1 class="text-3xl font-black text-orange-600 tracking-tighter italic uppercase">
+                    <h1
+                        class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-blue-600 tracking-tighter italic uppercase">
                         Movvia
                     </h1>
 
-                    <button @click="sideMenuOpen = false" class="text-gray-300 text-2xl font-bold">
+                    <button @click="sideMenuOpen = false"
+                        class="text-white/40 text-2xl font-bold hover:text-white transition">
                         ✕
                     </button>
                 </div>
 
                 {{-- PERFIL --}}
-                <div class="flex items-center gap-4 mb-8 pb-6 border-b border-gray-100">
-                    <div
-                        class="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white text-2xl font-black italic shadow-lg shrink-0">
-                        {{ substr(auth()->user()->name, 0, 1) }}
+                <div class="flex items-center gap-4 mb-8 pb-6 border-b border-white/10">
+                    <div class="relative shrink-0">
+                        <div
+                            class="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-blue-600 p-[2px] shadow-[0_12px_30px_-10px_rgba(37,99,235,0.35)]">
+                            <div
+                                class="w-full h-full rounded-2xl bg-[#101010] flex items-center justify-center text-white text-2xl font-black italic">
+                                {{ substr(auth()->user()->name, 0, 1) }}
+                            </div>
+                        </div>
                     </div>
 
                     <div class="min-w-0">
-                        <p class="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-1">
-                            {{ auth()->user()->role === \App\Enums\UserRole::Passenger ? 'Passageiro' : 'Motorista' }}
+                        <p class="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">
+                            Passageiro
                         </p>
 
-                        <p class="font-black text-xl text-gray-900 truncate leading-none">
+                        <p class="font-black text-xl text-white truncate leading-none">
                             {{ auth()->user()->name }}
                         </p>
 
-                        @if(auth()->user()->role === \App\Enums\UserRole::Driver)
-                            <div class="mt-2 flex items-center gap-2">
-                                <span class="text-yellow-500 text-sm">⭐</span>
-                                <span class="font-black text-sm text-gray-800">4.9</span>
-                                <span class="text-xs text-gray-400 font-bold uppercase tracking-widest">Avaliação</span>
-                            </div>
-                        @endif
+                        <p class="text-xs text-white/50 font-bold mt-2 uppercase tracking-widest">
+                            Conta ativa
+                        </p>
                     </div>
                 </div>
 
                 {{-- MENU PASSAGEIRO --}}
-                @if(auth()->user()->role === \App\Enums\UserRole::Passenger)
-                    <nav class="space-y-2 flex-1">
-                        <a href="{{ route('ride.history') }}" wire:navigate
-                            class="flex items-center gap-4 p-4 rounded-2xl hover:bg-orange-50 group transition-all">
-                            <span class="text-xl">📜</span>
-                            <span
-                                class="font-black text-xs uppercase tracking-widest text-gray-600 group-hover:text-orange-600">
-                                Histórico de Corridas
-                            </span>
-                        </a>
+                <nav class="space-y-2 flex-1">
+                    <a href="{{ route('ride.history') }}" wire:navigate
+                        class="flex items-center gap-4 p-4 rounded-2xl hover:bg-white/5 group transition-all">
+                        <span class="text-xl">📜</span>
+                        <span
+                            class="font-black text-xs uppercase tracking-widest text-white/70 group-hover:text-orange-300">
+                            Histórico
+                        </span>
+                    </a>
 
-                        <a href="{{ route('profile.edit') }}" wire:navigate
-                            class="flex items-center gap-4 p-4 rounded-2xl hover:bg-orange-50 group transition-all">
-                            <span class="text-xl">⚙️</span>
-                            <span
-                                class="font-black text-xs uppercase tracking-widest text-gray-600 group-hover:text-orange-600">
-                                Configurações
-                            </span>
-                        </a>
-                    </nav>
+                    <a href="{{ route('profile.edit') }}" wire:navigate
+                        class="flex items-center gap-4 p-4 rounded-2xl hover:bg-white/5 group transition-all">
+                        <span class="text-xl">⚙️</span>
+                        <span
+                            class="font-black text-xs uppercase tracking-widest text-white/70 group-hover:text-blue-300">
+                            Configurações
+                        </span>
+                    </a>
 
-                    <div class="pt-6 border-t border-gray-100">
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-                            <button
-                                class="w-full flex items-center justify-center gap-3 py-4 bg-gray-50 rounded-2xl text-gray-400 font-black uppercase text-[10px] tracking-widest hover:bg-red-50 hover:text-red-600 transition-all">
-                                Sair do Movvia 🚪
-                            </button>
-                        </form>
-                    </div>
-                @endif
+                    <a href="#" class="flex items-center gap-4 p-4 rounded-2xl hover:bg-white/5 group transition-all">
+                        <span class="text-xl">🎁</span>
+                        <span
+                            class="font-black text-xs uppercase tracking-widest text-white/70 group-hover:text-orange-300">
+                            Promoções
+                        </span>
+                    </a>
+                </nav>
 
-                {{-- MENU MOTORISTA --}}
-                @if(auth()->user()->role === \App\Enums\UserRole::Driver)
-                    <nav class="space-y-2 flex-1">
-                        <a href="#" class="flex items-center gap-4 p-4 rounded-2xl hover:bg-orange-50 group transition-all">
-                            <span class="text-xl">🎯</span>
-                            <span
-                                class="font-black text-xs uppercase tracking-widest text-gray-600 group-hover:text-orange-600">
-                                Preferências de Corrida
-                            </span>
-                        </a>
-
-                        <a href="#" class="flex items-center gap-4 p-4 rounded-2xl hover:bg-orange-50 group transition-all">
-                            <span class="text-xl">💰</span>
-                            <span
-                                class="font-black text-xs uppercase tracking-widest text-gray-600 group-hover:text-orange-600">
-                                Ganhos
-                            </span>
-                        </a>
-
-                        <a href="{{ route('ride.history') }}" wire:navigate
-                            class="flex items-center gap-4 p-4 rounded-2xl hover:bg-orange-50 group transition-all">
-                            <span class="text-xl">📜</span>
-                            <span
-                                class="font-black text-xs uppercase tracking-widest text-gray-600 group-hover:text-orange-600">
-                                Histórico de Corridas
-                            </span>
-                        </a>
-
-                        <a href="{{ route('profile.edit') }}" wire:navigate
-                            class="flex items-center gap-4 p-4 rounded-2xl hover:bg-orange-50 group transition-all">
-                            <span class="text-xl">⚙️</span>
-                            <span
-                                class="font-black text-xs uppercase tracking-widest text-gray-600 group-hover:text-orange-600">
-                                Configurações
-                            </span>
-                        </a>
-
-                        <a href="#" class="flex items-center gap-4 p-4 rounded-2xl hover:bg-orange-50 group transition-all">
-                            <span class="text-xl">❓</span>
-                            <span
-                                class="font-black text-xs uppercase tracking-widest text-gray-600 group-hover:text-orange-600">
-                                Ajuda
-                            </span>
-                        </a>
-                    </nav>
-
-                    {{-- RODAPÉ MOTORISTA --}}
-                    <div class="pt-6 border-t border-gray-100 space-y-3">
-                        <div
-                            class="rounded-2xl bg-gradient-to-r from-orange-500 via-orange-500 to-blue-700 text-white p-4 shadow-[0_15px_30px_-10px_rgba(249,115,22,0.35)]">
-                            <p class="text-[10px] font-black uppercase tracking-widest opacity-80 mb-2">
-                                Status de trabalho
-                            </p>
-
-                            <div class="flex items-center justify-between gap-3">
-                                <div>
-                                    <p class="font-black text-lg leading-none">
-                                        Ativar corridas
-                                    </p>
-                                    <p class="text-xs font-bold text-white/80 mt-1">
-                                        Fique online para receber chamadas
-                                    </p>
-                                </div>
-
-                                <div class="shrink-0">
-                                    <livewire:driver-status-toggle />
-                                </div>
-                            </div>
-                        </div>
-
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-                            <button
-                                class="w-full flex items-center justify-center gap-3 py-4 bg-gray-50 rounded-2xl text-gray-400 font-black uppercase text-[10px] tracking-widest hover:bg-red-50 hover:text-red-600 transition-all">
-                                Sair do Movvia 🚪
-                            </button>
-                        </form>
-                    </div>
-                @endif
+                <div class="pt-6 border-t border-white/10">
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button
+                            class="w-full flex items-center justify-center gap-3 py-4 bg-white/5 rounded-2xl text-white/50 font-black uppercase text-[10px] tracking-widest hover:bg-red-500/10 hover:text-red-300 transition-all">
+                            Sair do Movvia 🚪
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
 
         {{-- ========================= --}}
-        {{-- ÁREA PRINCIPAL --}}
+        {{-- HEADER FLUTUANTE PASSAGEIRO --}}
+        {{-- ========================= --}}
+        <div class="absolute top-5 inset-x-0 z-[170] px-4 pointer-events-none">
+            <div class="max-w-md mx-auto flex items-start justify-between gap-3">
+
+                {{-- PERFIL / SAUDAÇÃO --}}
+                <div
+                    class="pointer-events-auto flex items-center gap-3 bg-black/25 backdrop-blur-2xl border border-white/10 rounded-[1.75rem] px-3 py-3 shadow-[0_18px_45px_-18px_rgba(0,0,0,0.6)]">
+                    <div class="relative shrink-0">
+                        <div
+                            class="absolute inset-0 rounded-full bg-gradient-to-r from-orange-500 to-blue-600 blur-sm opacity-60">
+                        </div>
+                        <div
+                            class="relative w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-blue-600 p-[2px]">
+                            <div
+                                class="w-full h-full rounded-full bg-[#121212] flex items-center justify-center text-white text-lg font-black">
+                                {{ substr(auth()->user()->name, 0, 1) }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="min-w-0">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-orange-300">
+                            Movvia
+                        </p>
+                        <p class="text-white text-sm font-black truncate">
+                            Olá, {{ explode(' ', auth()->user()->name)[0] }}!
+                        </p>
+                    </div>
+                </div>
+
+                {{-- BOTÃO SEGURANÇA / ALERTAS --}}
+                <button
+                    class="pointer-events-auto w-12 h-12 rounded-2xl bg-black/25 backdrop-blur-2xl border border-white/10 shadow-[0_18px_45px_-18px_rgba(0,0,0,0.6)] flex items-center justify-center text-white text-xl hover:bg-white/10 transition-all active:scale-95">
+                    🛡️
+                </button>
+            </div>
+        </div>
+
+        {{-- ========================= --}}
+        {{-- ÁREA PRINCIPAL PASSAGEIRO --}}
         {{-- ========================= --}}
         <main class="flex-1 relative w-full h-full overflow-hidden">
 
-            @if(auth()->user()->role === \App\Enums\UserRole::Passenger)
+            <div class="absolute inset-0 w-full h-full overflow-hidden">
 
-                {{-- ========================= --}}
-                {{-- VISÃO DO PASSAGEIRO --}}
-                {{-- ========================= --}}
-                <div class="absolute inset-0 w-full h-full">
-
-                    {{-- MAPA --}}
-                    <div class="absolute inset-0 z-0 bg-gray-200" wire:ignore>
-                        <div id="map" class="w-full h-full"></div>
-                    </div>
-
-                    {{-- STATUS / AVALIAÇÃO --}}
-                    <div class="absolute inset-0 z-[200]">
-                        <livewire:passenger-ride-status />
-                    </div>
-
-                    {{-- BOTTOM SHEET PASSAGEIRO --}}
-                    <div
-                        class="absolute inset-x-0 bottom-0 z-[140] pointer-events-none p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-                        <div class="max-w-md mx-auto pointer-events-auto">
-                            <livewire:request-ride />
-                        </div>
-                    </div>
+                {{-- MAPA --}}
+                <div class="absolute inset-0 z-0 bg-[#121212]" wire:ignore>
+                    <div id="map" class="w-full h-full"></div>
                 </div>
 
-            @elseif(auth()->user()->role === \App\Enums\UserRole::Driver)
+                {{-- OVERLAY GRADIENTE PARA DAR PROFUNDIDADE --}}
+                <div
+                    class="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-b from-black/30 via-transparent to-black/40">
+                </div>
 
-                        {{-- ========================= --}}
-                        {{-- VISÃO DO MOTORISTA --}}
-                        {{-- ========================= --}}
-                        <div class="absolute inset-0 w-full h-full overflow-hidden">
+                {{-- STATUS / AVALIAÇÃO --}}
+                <div class="absolute inset-0 z-[210] pointer-events-none">
+                    <livewire:passenger-ride-status />
+                </div>
 
-                            {{-- MAPA FULLSCREEN --}}
-                            <div class="absolute inset-0 z-0 bg-gray-200" wire:ignore>
-                                <div id="driver-map" class="w-full h-full"></div>
-                            </div>
+                {{-- BOTTOM SHEET MODERNA --}}
+                <div
+                    class="absolute inset-x-0 bottom-0 z-[150] pointer-events-none px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                    <div class="max-w-md mx-auto pointer-events-auto">
 
-                            {{-- SOBREPOSIÇÃO SUAVE --}}
+                        {{-- CASCA VISUAL DA BOTTOM SHEET --}}
+                        <div class="relative rounded-t-[2.25rem] overflow-hidden">
                             <div
-                                class="absolute inset-0 bg-gradient-to-b from-black/5 via-transparent to-black/10 pointer-events-none z-[5]">
+                                class="absolute inset-0 bg-[#161616]/92 backdrop-blur-3xl border border-white/10 shadow-[0_-20px_50px_-18px_rgba(0,0,0,0.7)]">
                             </div>
 
-                            {{-- TOP PILL DE GANHOS --}}
-                            <<div class="absolute top-4 inset-x-0 z-[120] pointer-events-none px-4">
-                                <div class="max-w-md mx-auto flex justify-center">
-                                    <div
-                                        class="pointer-events-auto bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-full px-5 py-3 shadow-[0_15px_35px_-10px_rgba(37,99,235,0.45)] border border-blue-400/20 backdrop-blur-xl flex items-center gap-3">
-                                        <div
-                                            class="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center border border-white/10 shadow-inner">
-                                            <span class="text-xl">🪙</span>
-                                        </div>
-
-                                        <div class="leading-none">
-                                            <p class="text-[10px] font-black uppercase tracking-widest text-orange-300 mb-1">
-                                                Ganhos do dia
-                                            </p>
-                                            <p class="text-2xl font-black tracking-tight">
-                                                R$ {{ number_format(auth()->user()->daily_earnings ?? 0, 2, ',', '.') }}
-                                            </p>
-                                        </div>
-                                    </div>
+                            <div class="relative px-4 pt-3">
+                                {{-- HANDLE --}}
+                                <div class="flex justify-center mb-4">
+                                    <div class="w-12 h-1.5 rounded-full bg-white/20"></div>
                                 </div>
-                        </div>
 
+                                {{-- TABS RÁPIDAS --}}
+                                <div class="grid grid-cols-3 gap-2 mb-4">
+                                    <button
+                                        class="h-11 rounded-2xl bg-gradient-to-r from-orange-500/20 to-blue-600/20 text-white text-[11px] font-black uppercase tracking-widest border border-orange-400/10 hover:from-orange-500/30 hover:to-blue-600/30 transition-all">
+                                        Viagem
+                                    </button>
 
+                                    <button
+                                        class="h-11 rounded-2xl bg-white/5 text-white/70 text-[11px] font-black uppercase tracking-widest border border-white/5 hover:bg-white/10 transition-all">
+                                        Entregas
+                                    </button>
 
-                        {{-- ESTADO / CHAMADAS DO MOTORISTA --}}
-                        <div class="absolute inset-0 z-[140] pointer-events-none">
-                            <div class="pointer-events-auto">
-                                <livewire:available-rides />
-                            </div>
-                        </div>
+                                    <button
+                                        class="h-11 rounded-2xl bg-white/5 text-white/70 text-[11px] font-black uppercase tracking-widest border border-white/5 hover:bg-white/10 transition-all">
+                                        Histórico
+                                    </button>
+                                </div>
 
-                        {{-- BOTTOM SHEET ESTILO APP --}}
-                        <div class="absolute bottom-0 inset-x-0 z-[145] pointer-events-none">
-                            <div class="max-w-md mx-auto pointer-events-auto">
-                                <div
-                                    class="bg-white/96 backdrop-blur-2xl rounded-t-[2rem] shadow-[0_-20px_40px_-20px_rgba(0,0,0,0.35)] border-t border-white/70 px-6 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+                                {{-- FAVORITOS RÁPIDOS --}}
+                                <div class="grid grid-cols-2 gap-3 mb-4">
+                                    <button
+                                        class="rounded-[1.4rem] bg-gradient-to-r from-orange-500/20 to-blue-600/20 border border-orange-400/15 px-4 py-4 text-left hover:from-orange-500/30 hover:to-blue-600/30 transition-all">
+                                        <p
+                                            class="text-[10px] font-black uppercase tracking-widest text-orange-300 mb-1">
+                                            Favorito</p>
+                                        <p class="text-white font-black text-sm">🏠 Casa</p>
+                                    </button>
 
-                                    {{-- HANDLE --}}
-                                    <div class="flex justify-center mb-4">
-                                        <div class="w-12 h-1.5 rounded-full bg-gray-300"></div>
-                                    </div>
+                                    <button
+                                        class="rounded-[1.4rem] bg-white/5 border border-white/8 px-4 py-4 text-left hover:bg-white/8 transition-all">
+                                        <p class="text-[10px] font-black uppercase tracking-widest text-blue-300 mb-1">
+                                            Favorito</p>
+                                        <p class="text-white font-black text-sm">💼 Trabalho</p>
+                                    </button>
+                                </div>
 
-                                    {{-- CABEÇALHO DO SHEET --}}
-                                    <div class="flex items-center justify-center mb-5">
-                                        <div class="text-center">
-                                            <p class="text-3xl font-black tracking-tight transition-all duration-300"
-                                                :class="driverOnline ? 'text-blue-700' : 'text-gray-900'"
-                                                x-text="driverOnline ? 'Procurando viagens' : 'Offline'"></p>
-
-                                            <p class="text-[11px] font-black uppercase tracking-widest mt-1 transition-all duration-300"
-                                                :class="driverOnline ? 'text-orange-500' : 'text-gray-400'"
-                                                x-text="driverOnline ? 'Movvia ativo no mapa' : 'Motorista indisponível'"></p>
-                                        </div>
-                                    </div>
-
-                                    {{-- ÁREA DINÂMICA --}}
-                                    <div class="space-y-4">
-                                        <livewire:active-trip />
-                                    </div>
+                                {{-- REQUEST RIDE ATUAL DENTRO DA NOVA CASCA --}}
+                                <div class="pb-2">
+                                    <livewire:request-ride />
                                 </div>
                             </div>
                         </div>
-
+                    </div>
                 </div>
-            @endif
 
-    </main>
+            </div>
+
+        </main>
     </div>
 
     @push('styles')
@@ -314,6 +252,19 @@
                 -ms-overflow-style: none;
                 scrollbar-width: none;
             }
+
+            .leaflet-container {
+                background: #121212;
+            }
+
+            .leaflet-control-attribution,
+            .leaflet-control-zoom {
+                display: none !important;
+            }
+
+            .leaflet-tile {
+                filter: brightness(0.42) contrast(1.15) saturate(0.75) hue-rotate(190deg);
+            }
         </style>
     @endpush
 
@@ -321,34 +272,25 @@
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
         <script>
-            function initMaps() {
-                // MAPA PASSAGEIRO
+            function initPassengerMap() {
                 const pMapEl = document.getElementById('map');
+
                 if (pMapEl) {
                     if (window.rideMap) window.rideMap.remove();
 
-                    window.rideMap = L.map('map', { zoomControl: false }).setView([-12.6975, -38.3242], 14);
+                    window.rideMap = L.map('map', {
+                        zoomControl: false,
+                        attributionControl: false
+                    }).setView([-12.6975, -38.3242], 14);
 
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(window.rideMap);
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(window.rideMap);
 
                     setTimeout(() => window.rideMap.invalidateSize(), 400);
                 }
-
-                // MAPA MOTORISTA
-                const dMapEl = document.getElementById('driver-map');
-                if (dMapEl) {
-                    if (window.dMap) window.dMap.remove();
-
-                    window.dMap = L.map('driver-map', { zoomControl: false }).setView([-12.6975, -38.3242], 14);
-
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(window.dMap);
-
-                    setTimeout(() => window.dMap.invalidateSize(), 400);
-                }
             }
 
-            document.addEventListener('DOMContentLoaded', initMaps);
-            document.addEventListener('livewire:navigated', initMaps);
+            document.addEventListener('DOMContentLoaded', initPassengerMap);
+            document.addEventListener('livewire:navigated', initPassengerMap);
         </script>
     @endpush
 </x-app-layout>

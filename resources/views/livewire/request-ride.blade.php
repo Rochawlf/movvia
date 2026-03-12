@@ -198,7 +198,7 @@ new class extends Component {
             'opacity-100 pointer-events-auto scale-100': mode === 'mapSelection',
             'opacity-0 pointer-events-none scale-90': mode !== 'mapSelection'
         }"
-        class="fixed top-[max(1rem,env(safe-area-inset-top))] left-4 z-[160] bg-white text-gray-900 w-12 h-12 rounded-full shadow-xl flex items-center justify-center font-bold active:scale-95 transition-all duration-300"
+        class="fixed top-[max(1rem,env(safe-area-inset-top))] left-4 z-[160] w-12 h-12 rounded-full bg-[#18181B]/90 backdrop-blur-2xl border border-white/10 text-white shadow-2xl flex items-center justify-center font-bold active:scale-95 transition-all duration-300"
     >
         ✕
     </button>
@@ -209,33 +209,33 @@ new class extends Component {
         class="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center pb-24 transition-opacity duration-300"
     >
         <div class="relative flex flex-col items-center">
-            <div class="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center shadow-lg border-4 border-white">
+            <div class="w-12 h-12 bg-gradient-to-br from-orange-500 to-blue-600 text-white rounded-full flex items-center justify-center shadow-2xl border-4 border-white/90">
                 <div class="w-3 h-3 bg-white rounded-full"></div>
             </div>
-            <div class="w-1 h-6 bg-black"></div>
+            <div class="w-1 h-6 bg-white/90"></div>
         </div>
     </div>
 
     {{-- DRAWER MAPA --}}
     <div
-        class="fixed inset-x-0 bottom-0 bg-[#121212] rounded-t-[2rem] shadow-2xl z-[160] p-6 pb-[max(2rem,env(safe-area-inset-bottom))] transition-transform duration-300 pointer-events-auto"
+        class="fixed inset-x-0 bottom-0 bg-[#121212]/96 backdrop-blur-3xl rounded-t-[2rem] shadow-2xl z-[160] p-6 pb-[max(2rem,env(safe-area-inset-bottom))] transition-transform duration-300 pointer-events-auto border-t border-white/10"
         :class="mode === 'mapSelection' ? 'translate-y-0' : 'translate-y-full'"
     >
-        <div class="w-12 h-1.5 bg-gray-600 rounded-full mx-auto mb-6"></div>
+        <div class="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-6"></div>
 
         <h3
-            class="text-white text-center text-xl font-bold mb-2"
+            class="text-white text-center text-xl font-black mb-2"
             x-text="selectionTarget === 'origin' ? 'Defina o embarque' : 'Defina o destino'"
         ></h3>
 
-        <p class="text-gray-400 text-sm text-center mb-6">
+        <p class="text-white/55 text-sm text-center mb-6">
             Arraste o mapa para a localização exata
         </p>
 
         <button
             type="button"
             @click="window.confirmMapLocation && window.confirmMapLocation()"
-            class="w-full bg-white text-black py-4 rounded-xl font-bold active:scale-95 transition-all"
+            class="w-full bg-gradient-to-r from-orange-500 to-blue-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest active:scale-95 transition-all shadow-[0_15px_30px_-10px_rgba(37,99,235,0.35)]"
         >
             Confirmar no mapa
         </button>
@@ -244,137 +244,178 @@ new class extends Component {
     {{-- INTERFACE PRINCIPAL --}}
     <div
         x-show="mode !== 'mapSelection'"
-        class="bg-white/95 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl p-6 space-y-5"
+        class="space-y-4"
     >
         @if (session()->has('message'))
-            <div class="p-4 bg-green-50 border border-green-200 text-green-700 rounded-2xl font-bold text-sm">
+            <div class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-400/20 text-emerald-300 font-bold text-sm">
                 {{ session('message') }}
             </div>
         @endif
 
         @if(!$this->activeRide)
-            <h2 class="text-xl font-black italic uppercase">
-                Para onde <span class="text-orange-500">vamos?</span>
-            </h2>
-
-            <div class="space-y-4 relative">
-                <div class="absolute left-3 top-8 bottom-8 w-0.5 border-l-2 border-dashed border-gray-200"></div>
-
+            {{-- CAMPOS ORIGEM E DESTINO --}}
+            <div class="space-y-3">
                 {{-- ORIGEM --}}
-                <div class="relative pl-10">
-                    <button
-                        type="button"
-                        @click="openMapSelection('origin')"
-                        class="absolute right-10 text-[10px] font-black text-blue-600 uppercase"
-                    >
-                        mapa
-                    </button>
-
-                    @if($origin)
-                        <button
-                            type="button"
-                            wire:click="clearOrigin"
-                            class="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-sm font-black"
-                        >
-                            ✕
-                        </button>
-                    @endif
-
-                    <div class="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-500 rounded-full border-4 border-white"></div>
+                <div class="relative">
+                    <div class="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.8)]"></div>
 
                     <input
                         type="text"
                         id="input-origin"
                         wire:model.live.debounce.800ms="origin"
-                        placeholder="Sua localização"
-                        class="w-full bg-gray-50 border-none rounded-2xl py-4 px-4 pr-16 font-bold text-sm"
+                        placeholder="Local de embarque"
+                        class="w-full h-14 rounded-[1.4rem] bg-white/6 border border-white/10 pl-10 pr-24 text-white placeholder:text-white/35 font-bold text-sm outline-none focus:border-blue-400/50 focus:bg-white/10 transition-all"
                     >
+
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                        <button
+                            type="button"
+                            @click="openMapSelection('origin')"
+                            class="text-[10px] font-black uppercase tracking-widest text-blue-300 hover:text-blue-200 transition"
+                        >
+                            mapa
+                        </button>
+
+                        @if($origin)
+                            <button
+                                type="button"
+                                wire:click="clearOrigin"
+                                class="w-7 h-7 rounded-full bg-white/8 text-white/60 hover:text-white hover:bg-white/12 text-sm font-black transition"
+                            >
+                                ✕
+                            </button>
+                        @endif
+                    </div>
                 </div>
 
                 {{-- DESTINO --}}
-                <div class="relative pl-10">
-                    <button
-                        type="button"
-                        @click="openMapSelection('destination')"
-                        class="absolute right-10 text-[10px] font-black text-orange-600 uppercase"
-                    >
-                        mapa
-                    </button>
-
-                    @if($destination)
-                        <button
-                            type="button"
-                            wire:click="clearDestination"
-                            class="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-sm font-black"
-                        >
-                            ✕
-                        </button>
-                    @endif
-
-                    <div class="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-orange-500 rounded-full border-4 border-white animate-pulse"></div>
+                <div class="relative">
+                    <div class="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.8)] animate-pulse"></div>
 
                     <input
                         type="text"
                         id="input-destination"
                         wire:model.live.debounce.800ms="destination"
-                        placeholder="Para onde?"
-                        class="w-full bg-gray-50 border-none rounded-2xl py-4 px-4 pr-16 font-bold text-sm"
+                        placeholder="Para onde vamos?"
+                        class="w-full h-14 rounded-[1.4rem] bg-white/6 border border-white/10 pl-10 pr-24 text-white placeholder:text-white/35 font-bold text-sm outline-none focus:border-orange-400/50 focus:bg-white/10 transition-all"
                     >
+
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                        <button
+                            type="button"
+                            @click="openMapSelection('destination')"
+                            class="text-[10px] font-black uppercase tracking-widest text-orange-300 hover:text-orange-200 transition"
+                        >
+                            mapa
+                        </button>
+
+                        @if($destination)
+                            <button
+                                type="button"
+                                wire:click="clearDestination"
+                                class="w-7 h-7 rounded-full bg-white/8 text-white/60 hover:text-white hover:bg-white/12 text-sm font-black transition"
+                            >
+                                ✕
+                            </button>
+                        @endif
+                    </div>
                 </div>
             </div>
 
             {{-- CATEGORIAS E PREÇO --}}
             @if($this->canChooseCategory)
-                <div class="pt-4 border-t space-y-4">
-                    <div class="grid grid-cols-2 gap-3">
+                <div class="pt-3 border-t border-white/10 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-white/45">
+                            Escolha sua categoria
+                        </p>
+
+                        <p class="text-[10px] font-black uppercase tracking-widest text-blue-300">
+                            {{ number_format($distance, 1, ',', '.') }} km
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3">
                         <button
                             wire:click="$set('category', 'car')"
-                            class="p-4 rounded-3xl border-2 transition-all {{ $category === 'car' ? 'border-orange-500 bg-orange-50 shadow-sm' : 'border-gray-200 bg-white' }}"
+                            class="rounded-[1.4rem] border p-4 text-left transition-all
+                            {{ $category === 'car'
+                                ? 'border-orange-400/30 bg-gradient-to-br from-orange-500/18 to-blue-600/18 shadow-[0_15px_25px_-15px_rgba(249,115,22,0.45)]'
+                                : 'border-white/10 bg-white/5 hover:bg-white/8' }}"
                         >
-                            <span class="text-3xl">🚗</span>
-                            <p class="text-[10px] font-black uppercase mt-1 {{ $category === 'car' ? 'text-orange-600' : 'text-gray-400' }}">
-                                Carro
+                            <div class="text-2xl mb-2">🚗</div>
+                            <p class="text-[10px] font-black uppercase tracking-widest {{ $category === 'car' ? 'text-orange-300' : 'text-white/45' }}">
+                                Movvia Pop
+                            </p>
+                            <p class="text-white font-bold text-xs mt-1">
+                                R$ {{ number_format($category === 'car' ? $fare : max($fare, 8), 2, ',', '.') }}
                             </p>
                         </button>
 
                         <button
                             wire:click="$set('category', 'moto')"
-                            class="p-4 rounded-3xl border-2 transition-all {{ $category === 'moto' ? 'border-orange-500 bg-orange-50 shadow-sm' : 'border-gray-200 bg-white' }}"
+                            class="rounded-[1.4rem] border p-4 text-left transition-all
+                            {{ $category === 'moto'
+                                ? 'border-blue-400/30 bg-gradient-to-br from-blue-600/18 to-orange-500/18 shadow-[0_15px_25px_-15px_rgba(37,99,235,0.45)]'
+                                : 'border-white/10 bg-white/5 hover:bg-white/8' }}"
                         >
-                            <span class="text-3xl">🏍️</span>
-                            <p class="text-[10px] font-black uppercase mt-1 {{ $category === 'moto' ? 'text-orange-600' : 'text-gray-400' }}">
-                                Moto
+                            <div class="text-2xl mb-2">🏍️</div>
+                            <p class="text-[10px] font-black uppercase tracking-widest {{ $category === 'moto' ? 'text-blue-300' : 'text-white/45' }}">
+                                Movvia Moto
+                            </p>
+                            <p class="text-white font-bold text-xs mt-1">
+                                R$ {{ number_format($category === 'moto' ? $fare : max($fare, 5), 2, ',', '.') }}
+                            </p>
+                        </button>
+
+                        <button
+                            wire:click="$set('category', 'delivery')"
+                            class="rounded-[1.4rem] border p-4 text-left transition-all
+                            {{ $category === 'delivery'
+                                ? 'border-orange-400/30 bg-gradient-to-br from-orange-500/18 to-blue-600/18 shadow-[0_15px_25px_-15px_rgba(249,115,22,0.45)]'
+                                : 'border-white/10 bg-white/5 hover:bg-white/8' }}"
+                        >
+                            <div class="text-2xl mb-2">📦</div>
+                            <p class="text-[10px] font-black uppercase tracking-widest {{ $category === 'delivery' ? 'text-orange-300' : 'text-white/45' }}">
+                                Delivery
+                            </p>
+                            <p class="text-white font-bold text-xs mt-1">
+                                R$ {{ number_format($category === 'delivery' ? $fare : max($fare, 5), 2, ',', '.') }}
                             </p>
                         </button>
                     </div>
 
-                    <div class="bg-gray-900 rounded-[2rem] p-5 text-white flex justify-between items-center">
-                        <div>
-                            <p class="text-[10px] font-bold text-orange-400 uppercase">Total</p>
-                            <p class="text-2xl font-black">R$ {{ number_format($fare, 2, ',', '.') }}</p>
+                    <div class="rounded-[1.7rem] bg-gradient-to-r from-orange-500/15 to-blue-600/15 border border-white/10 p-4 flex items-center justify-between gap-4">
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-orange-300">
+                                Estimativa total
+                            </p>
+                            <p class="text-2xl font-black text-white">
+                                R$ {{ number_format($fare, 2, ',', '.') }}
+                            </p>
                         </div>
 
                         <button
                             wire:click="requestRide"
-                            class="bg-orange-500 px-8 py-4 rounded-2xl font-black uppercase text-xs"
+                            class="shrink-0 bg-gradient-to-r from-orange-500 to-blue-600 text-white px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-[0_15px_30px_-10px_rgba(37,99,235,0.35)] active:scale-95 transition-all"
                         >
-                            Pedir Movvia
+                            Pedir
                         </button>
                     </div>
                 </div>
             @endif
         @else
             {{-- CARD DE STATUS --}}
-            <div class="py-2 flex items-center gap-4">
-                <div class="w-12 h-12 bg-orange-500 rounded-2xl flex items-center justify-center text-2xl animate-pulse">
-                    {{ $this->activeRide->category === 'moto' ? '🏍️' : '🚗' }}
+            <div class="rounded-[1.8rem] bg-gradient-to-r from-orange-500/15 to-blue-600/15 border border-white/10 p-4 flex items-center gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-blue-600 flex items-center justify-center text-2xl shadow-xl">
+                    {{ $this->activeRide->category === 'moto' ? '🏍️' : ($this->activeRide->category === 'delivery' ? '📦' : '🚗') }}
                 </div>
 
-                <div class="flex-1">
-                    <p class="text-[10px] font-black text-orange-600 uppercase">
+                <div class="flex-1 min-w-0">
+                    <p class="text-[10px] font-black text-orange-300 uppercase tracking-widest">
                         {{ method_exists($this->activeRide->status, 'label') ? $this->activeRide->status->label() : $this->activeRide->status->value }}
                     </p>
-                    <p class="text-sm font-bold truncate">
+                    <p class="text-sm font-bold text-white truncate">
                         Indo para: {{ $this->activeRide->destination_address }}
                     </p>
                 </div>
@@ -382,7 +423,7 @@ new class extends Component {
                 @if(in_array($this->activeRide->status->value, ['pending', 'accepted']))
                     <button
                         wire:click="cancelRide"
-                        class="text-red-500 font-black text-[10px] uppercase underline"
+                        class="shrink-0 text-red-300 font-black text-[10px] uppercase tracking-widest underline"
                     >
                         Cancelar
                     </button>
@@ -427,29 +468,31 @@ new class extends Component {
         originIcon = L.divIcon({
             className: 'custom-origin-icon',
             html: `
-                <div class="w-5 h-5 bg-blue-500 border-[3px] border-white rounded-full shadow-[0_0_10px_rgba(59,130,246,0.6)] relative flex items-center justify-center">
-                    <div class="absolute inset-0 rounded-full bg-blue-500 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite] opacity-40"></div>
+                <div class="w-5 h-5 bg-blue-500 border-[3px] border-white rounded-full shadow-[0_0_12px_rgba(59,130,246,0.8)] relative flex items-center justify-center">
+                    <div class="absolute inset-0 rounded-full bg-blue-500 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite] opacity-35"></div>
                 </div>
             `,
             iconSize: [20, 20],
             iconAnchor: [10, 10]
         });
 
-        destinationIcon = L.icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowSize: [41, 41]
+        destinationIcon = L.divIcon({
+            className: 'custom-destination-icon',
+            html: `
+                <div class="w-5 h-5 bg-orange-500 border-[3px] border-white rounded-full shadow-[0_0_12px_rgba(249,115,22,0.8)] relative flex items-center justify-center">
+                    <div class="absolute inset-0 rounded-full bg-orange-500 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite] opacity-35"></div>
+                </div>
+            `,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
         });
 
         liveIcon = L.divIcon({
             className: 'custom-live-icon',
             html: `
                 <div class="relative">
-                    <div class="w-5 h-5 rounded-full bg-green-500 border-4 border-white shadow-lg"></div>
-                    <div class="absolute inset-0 rounded-full bg-green-400 opacity-30 animate-ping"></div>
+                    <div class="w-5 h-5 rounded-full bg-white border-4 border-blue-500 shadow-lg"></div>
+                    <div class="absolute inset-0 rounded-full bg-blue-400 opacity-25 animate-ping"></div>
                 </div>
             `,
             iconSize: [20, 20],
@@ -532,7 +575,10 @@ new class extends Component {
                 L.latLng(state.destination.lat, state.destination.lng)
             ],
             lineOptions: {
-                styles: [{ color: '#f97316', weight: 7, opacity: 0.85 }]
+                styles: [
+                    { color: '#1D4ED8', weight: 8, opacity: 0.95 },
+                    { color: '#F97316', weight: 4, opacity: 0.95 }
+                ]
             },
             createMarker: () => null,
             addWaypoints: false,
