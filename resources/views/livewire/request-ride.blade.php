@@ -264,7 +264,7 @@ new class extends Component {
                         id="input-origin"
                         wire:model.live.debounce.800ms="origin"
                         placeholder="Local de embarque"
-                        class="w-full h-14 rounded-[1.4rem] bg-white/6 border border-white/10 pl-10 pr-24 text-white placeholder:text-white/35 font-bold text-sm outline-none focus:border-blue-400/50 focus:bg-white/10 transition-all"
+                        class="w-full h-14 rounded-[1.4rem] appearance-none bg-[#161616]/92 border border-white/10 pl-10 pr-24 text-white/90 placeholder:text-white/45 font-bold text-sm outline-none shadow-none ring-0 focus:outline-none focus:ring-0 focus:border-blue-400/50 focus:bg-[#1d1d1d] active:bg-[#1d1d1d] transition-all"
                     >
 
                     <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -297,7 +297,7 @@ new class extends Component {
                         id="input-destination"
                         wire:model.live.debounce.800ms="destination"
                         placeholder="Para onde vamos?"
-                        class="w-full h-14 rounded-[1.4rem] bg-white/6 border border-white/10 pl-10 pr-24 text-white placeholder:text-white/35 font-bold text-sm outline-none focus:border-orange-400/50 focus:bg-white/10 transition-all"
+                        class="w-full h-14 rounded-[1.4rem] appearance-none bg-[#161616]/92 border border-white/10 pl-10 pr-24 text-white/90 placeholder:text-white/45 font-bold text-sm outline-none shadow-none ring-0 focus:outline-none focus:ring-0 focus:border-orange-400/50 focus:bg-[#1d1d1d] active:bg-[#1d1d1d] transition-all"
                     >
 
                     <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -432,6 +432,31 @@ new class extends Component {
         @endif
     </div>
 </div>
+
+@push('styles')
+<style>
+    #input-origin,
+    #input-destination {
+        -webkit-appearance: none;
+        appearance: none;
+        background-color: rgba(22, 22, 22, 0.92) !important;
+        color: rgba(255, 255, 255, 0.9) !important;
+    }
+
+    #input-origin:focus,
+    #input-destination:focus {
+        background-color: rgba(29, 29, 29, 1) !important;
+        color: rgba(255, 255, 255, 0.95) !important;
+        outline: none !important;
+        box-shadow: none !important;
+    }
+
+    #input-origin::placeholder,
+    #input-destination::placeholder {
+        color: rgba(255, 255, 255, 0.45) !important;
+    }
+</style>
+@endpush
 
 @push('scripts')
 <script>

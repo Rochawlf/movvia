@@ -75,9 +75,10 @@ new class extends Component {
 
     {{-- MODAL DE NOVA CORRIDA --}}
     @if($activeRideRequest)
-        <div class="absolute inset-0 bg-black/45 backdrop-blur-sm z-[190] flex items-center justify-center p-5">
+        <div
+            class="absolute inset-0 bg-black/45 backdrop-blur-sm z-[190] pointer-events-auto flex items-center justify-center p-5">
             <div
-                class="w-full max-w-md bg-white rounded-[2.5rem] p-6 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.65)] border border-orange-100 relative overflow-hidden">
+                class="w-full max-w-md bg-white rounded-[2.5rem] p-6 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.65)] border border-orange-100 relative overflow-hidden pointer-events-auto">
 
                 <div class="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-orange-500 via-orange-400 to-blue-600">
                 </div>
@@ -118,7 +119,7 @@ new class extends Component {
                 </div>
 
                 <div class="grid grid-cols-1 gap-3">
-                    <button wire:click="acceptRide({{ $activeRideRequest->id }})"
+                    <button type="button" wire:click="acceptRide({{ $activeRideRequest->id }})"
                         class="w-full py-5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-[1.5rem] font-black uppercase tracking-widest text-lg shadow-[0_15px_30px_-10px_rgba(37,99,235,0.35)] active:scale-95 transition-all">
                         Aceitar corrida
                     </button>
